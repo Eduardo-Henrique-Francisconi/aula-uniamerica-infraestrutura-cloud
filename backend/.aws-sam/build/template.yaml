@@ -1,0 +1,81 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: 'Backend serverless do Todo App - Lambda + API Gateway (HTTP API) + DynamoDB.
+  A tabela DynamoDB nao tem endpoint publico: so a role do Lambda tem permissao (via
+  DynamoDBCrudPolicy, restrita a esta tabela) para le-la/escreve-la. O acesso direto
+  ao API Gateway (sem passar pela Cloudflare) e bloqueado via cabecalho secreto (ORIGIN_SECRET),
+  conferido pelo proprio Lambda.
+
+  '
+Parameters:
+  OriginSecret:
+    Type: String
+    NoEcho: true
+    Description: 'Segredo compartilhado com a Cloudflare (Transform Rule) para bloquear
+      acesso direto a URL do API Gateway, sem passar pelo proxy reverso.
+
+      '
+Globals:
+  Function:
+    Timeout: 10
+    MemorySize: 128
+    Runtime: nodejs18.x
+Resources:
+  TodosTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: todos-table
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+      - AttributeName: id
+        AttributeType: S
+      KeySchema:
+      - AttributeName: id
+        KeyType: HASH
+  TodoFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: TodoFunction
+      Handler: index.handler
+      Environment:
+        Variables:
+          TABLE_NAME:
+            Ref: TodosTable
+          ORIGIN_SECRET:
+            Ref: OriginSecret
+      Policies:
+      - DynamoDBCrudPolicy:
+          TableName:
+            Ref: TodosTable
+      Events:
+        ApiEvent:
+          Type: HttpApi
+          Properties:
+            ApiId:
+              Ref: TodoHttpApi
+            Path: /{proxy+}
+            Method: ANY
+    Metadata:
+      SamResourceId: TodoFunction
+  TodoHttpApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      CorsConfiguration:
+        AllowOrigins:
+        - '*'
+        AllowMethods:
+        - GET
+        - POST
+        - PATCH
+        - DELETE
+        - OPTIONS
+        AllowHeaders:
+        - Content-Type
+Outputs:
+  ApiUrl:
+    Description: URL base da API (use para testar antes de configurar o dominio)
+    Value:
+      Fn::Sub: https://${TodoHttpApi}.execute-api.${AWS::Region}.amazonaws.com
+  TodosTableName:
+    Value:
+      Ref: TodosTable
