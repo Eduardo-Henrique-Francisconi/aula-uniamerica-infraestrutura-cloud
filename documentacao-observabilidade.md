@@ -79,6 +79,12 @@ mão), descrita no Painel 1.
 
 ## 2. Painéis — fundamentação completa (100%)
 
+> A fundamentação completa e detalhada de cada painel (os 10 itens exigidos,
+> mais o alcance de cada um e como interpretar períodos sem dados) está em
+> documentos individuais na pasta [`paineis-observabilidade/`](paineis-observabilidade/README.md).
+> O resumo abaixo cobre os mesmos 10 itens de forma mais compacta, para
+> leitura rápida; use os arquivos da pasta como referência canônica.
+
 ### Painel 1 — Disponibilidade
 
 **Nome e pergunta operacional.** "Disponibilidade" — a aplicação está
@@ -92,7 +98,7 @@ requisições eu recebi", não "alguém de fora conseguiu me alcançar pelo
 domínio público agora".
 
 **Origem dos dados.** Função `HealthCheckFunction` (Lambda), disparada pelo
-EventBridge Scheduler a cada 5 minutos. Ela faz uma requisição HTTPS real a
+EventBridge (regra agendada `todo-app-healthcheck-schedule`) a cada 5 minutos. Ela faz uma requisição HTTPS real a
 `https://app.neshiku.com.br/` e outra a `https://api.neshiku.com.br/todos`
 — os mesmos domínios que um usuário usaria, passando pela Cloudflare da
 mesma forma (o header `X-Origin-Verify` é injetado pela Transform Rule, não
@@ -485,33 +491,40 @@ inline, sem dependências externas).
 ## 6. Testes e evidências
 
 Ver `backend/DEPLOY-ENTREGA2.md` (como publicar as mudanças) e
-`observabilidade_testes.py` (script que gera os cenários abaixo e escreve
-`relatorio_testes_observabilidade.md` com os dados reais obtidos do
-CloudWatch — métricas e resultados das duas consultas de Logs Insights).
+`observabilidade_testes.py` — script **100% automático**, sem nenhum passo
+manual: roda todos os cenários abaixo (incluindo o teste de failover do
+front-end com o canário rodando durante a queda), julga PASS/FAIL de cada
+verificação, escreve `relatorio_testes_observabilidade.md` com os dados reais
+obtidos do CloudWatch e ainda baixa sozinho, via `GetMetricWidgetImage`, as
+imagens dos widgets de métrica do dashboard (pasta `evidencias_observabilidade/`)
+— não é preciso abrir o console e tirar print na mão.
 
 Cenários cobertos pelo script, e o painel que cada um valida:
 
 1. **Uso normal pelo domínio** (GET/POST/PATCH/DELETE em `/todos`, ponta a
-   ponta front-end→back-end→banco) → gera dados reais para os Painéis 2 e 4
-   e 5.
+   ponta front-end→back-end→banco) → gera dados reais para os Painéis
+   Desempenho e Banco de Dados.
 2. **Canário de disponibilidade** (invocação manual, sem esperar os 5 min do
-   agendamento) → gera dados reais para o Painel 1.
+   agendamento) → gera dados reais para o Painel Disponibilidade.
 3. **Falha controlada** (`GET /todos-falha-simulada`, sempre 500) → gera
-   dados reais para o Painel 3 (taxa de erro e causas).
+   dados reais para o Painel Erros (taxa e causas).
+4. **Failover do front-end com o canário rodando durante a queda** —
+   remove temporariamente o `index.html` do bucket primário (mesma técnica
+   do Teste 7 de `run_tests.py`, Entrega 1), confirma que o front-end
+   continua respondendo via failover do CloudFront, invoca o canário nesse
+   exato momento e confirma, pelo próprio log do canário, que `target=frontend`
+   registrou `success` durante a queda — depois restaura o bucket
+   automaticamente (mesmo se algo falhar no meio do caminho). Essa é a
+   evidência indireta da redundância no Painel Disponibilidade, sem precisar
+   de um painel dedicado a isso.
 
 Depois de rodar o script (após o deploy — ver `DEPLOY-ENTREGA2.md`), anexe
-a esta entrega:
+a esta entrega os dois artefatos que ele gera sozinho:
 
-- `relatorio_testes_observabilidade.md` (gerado pelo script, com timestamp,
-  período consultado e os valores reais obtidos).
-- Capturas de tela do dashboard `todo-app-observabilidade` no mesmo período
-  do teste, mostrando os 4 painéis com dados.
-- Uma repetição do teste de redundância do front-end já feito na Entrega 1
-  (remover temporariamente o `index.html` do bucket primário) enquanto o
-  canário está rodando, para mostrar no Painel 1 que a checagem de
-  `frontend` continuou em sucesso durante a falha simulada do bucket
-  primário (evidência indireta da redundância, sem precisar de um painel
-  dedicado a isso).
+- `relatorio_testes_observabilidade.md` — resumo PASS/FAIL de cada
+  verificação, com timestamp, período consultado e os valores reais obtidos.
+- `evidencias_observabilidade/` — imagens (PNG) dos widgets de métrica do
+  dashboard, capturadas automaticamente no mesmo período do teste.
 
 **Como interpretar um período sem dados nos painéis:** um período sem
 nenhum ponto (não é "zero", é a ausência total do ponto) significa que a
@@ -525,7 +538,7 @@ ou de uso ativo, e não indica problema.
 ## 7. Para a entrega
 
 - **Serviços utilizados nesta etapa:** Amazon CloudWatch (Logs, Metrics,
-  Logs Insights, Dashboard), Amazon EventBridge Scheduler (agenda o
+  Logs Insights, Dashboard), Amazon EventBridge — regra agendada (dispara o
   canário), AWS Lambda (função nova `HealthCheckFunction`) — todos dentro da
   mesma conta/região da Entrega 1 (`us-east-2`).
 - **Repositório:** https://github.com/Eduardo-Henrique-Francisconi/aula-uniamerica-infraestrutura-cloud

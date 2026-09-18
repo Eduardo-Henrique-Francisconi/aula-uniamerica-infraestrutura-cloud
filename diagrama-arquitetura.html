@@ -5,15 +5,15 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Arquitetura Serverless + Observabilidade — Todo App (neshiku.com.br)</title>
 <style>
+  :root{--fundo:#0d1117}   /* mude aqui para trocar o fundo da página E do PNG exportado */
   *{box-sizing:border-box}
-  body{margin:0;padding:24px 16px;background:#0d1117;font-family:system-ui,-apple-system,Arial,Helvetica,sans-serif;color:#c9d1d9}
-  .page{max-width:1400px;margin:0 auto}
+  body{margin:0;padding:24px 16px;background:var(--fundo);font-family:system-ui,-apple-system,Arial,Helvetica,sans-serif;color:#c9d1d9}
+  .page{max-width:1440px;margin:0 auto}
   h1{font-size:22px;margin:0 0 4px;color:#e6edf3;font-weight:700;text-align:center}
   h2{font-size:16px;margin:28px 0 4px;color:#e6edf3;font-weight:700;text-align:center}
   .sub{font-size:12.5px;color:#8b949e;text-align:center;margin:0 0 20px}
-  .svgcard{background:#0d1117;border:1px solid #21262d;border-radius:12px;padding:14px;margin-bottom:20px}
+  .svgcard{background:var(--fundo);border:1px solid #21262d;border-radius:12px;padding:14px;margin-bottom:20px}
   svg{width:100%;display:block}
-
   .card{background:#161b22;border:1px solid #30363d;border-radius:10px;padding:18px 22px;margin-bottom:14px}
   .card h3{margin:0 0 14px;color:#e6edf3;font-size:14px}
   .sample{display:flex;align-items:center;gap:12px;margin-bottom:8px;font-size:11.5px;color:#c9d1d9}
@@ -21,27 +21,52 @@
   .card h4{margin:16px 0 8px;color:#e6edf3;font-size:12px}
   .card ul{margin:0;padding-left:18px}
   .card li{margin-bottom:6px;font-size:11px;line-height:1.7;color:#c9d1d9}
+  .card table{width:100%;border-collapse:collapse;font-size:11px;margin-top:6px}
+  .card th,.card td{border:1px solid #30363d;padding:6px 8px;text-align:left;vertical-align:top}
+  .card th{background:var(--fundo);color:#e6edf3;font-weight:700}
   .footer{text-align:center;font-size:10px;color:#6e7681;margin-top:14px}
-  .note{font-size:10.5px;color:#56d9d3;font-weight:600}
+  code{background:var(--fundo);padding:1px 4px;border-radius:3px;font-size:10.5px;color:#7ee3e8}
+
+  /* barra de exportação */
+  .toolbar{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;align-items:center;margin:0 0 18px}
+  .toolbar button{background:#21262d;color:#e6edf3;border:1px solid #30363d;border-radius:7px;
+    padding:8px 14px;font-size:12px;font-family:inherit;cursor:pointer;transition:background .15s,border-color .15s}
+  .toolbar button:hover{background:#30363d;border-color:#8b949e}
+  .toolbar button:active{background:#161b22}
+  .toolbar button.primary{background:#1f6feb;border-color:#1f6feb;color:#fff}
+  .toolbar button.primary:hover{background:#388bfd;border-color:#388bfd}
+  .toolbar .status{font-size:11px;color:#8b949e;min-width:180px;text-align:left}
+  .toolbar .status.ok{color:#56d364}
+  .toolbar .status.err{color:#ff7b72}
+
+  @media print{
+    body{background:var(--fundo) !important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    .noprint{display:none !important}
+    .svgcard,.card{break-inside:avoid;page-break-inside:avoid}
+  }
 </style>
 </head>
 <body>
 <div class="page">
 
   <h1>Arquitetura Serverless + Observabilidade — Todo App (neshiku.com.br)</h1>
-  <p class="sub">AWS (Lambda + API Gateway + DynamoDB + S3 + CloudFront + CloudWatch) + Cloudflare (DNS / Proxy Reverso / HTTPS)</p>
+  <p class="sub">AWS conta 005042706931 · região principal us-east-2 · stack SAM <code>sam-app</code> · Cloudflare (DNS + proxy reverso)</p>
 
-  <h2>Diagrama 1 — Aplicação (Entrega 1, revisado)</h2>
+  <div class="toolbar noprint">
+    <button class="primary" onclick="baixarTudo()">⬇ Baixar tudo em PNG (diagramas + legenda)</button>
+    <span id="btnsDiagramas"></span>
+    <button onclick="window.print()">🖨 Salvar em PDF</button>
+    <span class="status" id="expStatus"></span>
+  </div>
+
+  <h2>Diagrama 1 — Aplicação (domínio, DNS, proxy reverso, redundância, segurança)</h2>
   <div class="svgcard">
-  <svg viewBox="0 0 1400 610" role="img">
+  <svg viewBox="0 0 1400 800" role="img">
   <title>Diagrama da arquitetura serverless do Todo App</title>
-  <desc>Usuário acessa via Cloudflare, que roteia para CloudFront (front-end, redundante em dois buckets S3) e API Gateway (back-end, Lambda, DynamoDB). Acessos diretos à AWS, ao banco e aos buckets são bloqueados.</desc>
+  <desc>O navegador do usuário resolve app.neshiku.com.br e api.neshiku.com.br na Cloudflare, que atua como proxy reverso e encaminha para o CloudFront (front-end redundante em dois buckets S3) e para o API Gateway (back-end Lambda + DynamoDB). Acessos diretos à URL crua do API Gateway, aos buckets S3 e ao DynamoDB são bloqueados.</desc>
   <defs>
     <marker id="ar-g" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7.5" markerHeight="7.5" orient="auto-start-reverse">
       <path d="M2 1.5L8 5L2 8.5" fill="none" stroke="#3fb950" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>
-    </marker>
-    <marker id="ar-b" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7.5" markerHeight="7.5" orient="auto-start-reverse">
-      <path d="M2 1.5L8 5L2 8.5" fill="none" stroke="#1f6feb" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>
     </marker>
     <marker id="ar-r" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7.5" markerHeight="7.5" orient="auto-start-reverse">
       <path d="M2 1.5L8 5L2 8.5" fill="none" stroke="#f85149" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>
@@ -51,134 +76,157 @@
     </marker>
   </defs>
 
-  <rect width="1400" height="610" fill="#0d1117"/>
+  <rect width="1400" height="800" fill="var(--fundo, #0d1117)"/>
 
-  <!-- ===== connectors (drawn first, boxes/labels sit on top) ===== -->
-  <path d="M240 102 L592 102" fill="none" stroke="#8b949e" stroke-width="1.8" stroke-dasharray="5,4" marker-end="url(#ar-n)"/>
-  <path d="M700 128 L700 156" fill="none" stroke="#1f6feb" stroke-width="2.2" marker-end="url(#ar-b)"/>
+  <!-- ================= conectores ================= -->
+  <path d="M264 66 L430 66 L430 162" fill="none" stroke="#8b949e" stroke-width="1.8" stroke-dasharray="5,4" marker-end="url(#ar-n)"/>
+  <path d="M700 118 L700 162" fill="none" stroke="#3fb950" stroke-width="2.4" marker-end="url(#ar-g)"/>
+  <path d="M700 286 L700 314 L300 314 L300 334" fill="none" stroke="#3fb950" stroke-width="2.4" marker-end="url(#ar-g)"/>
+  <path d="M700 286 L700 314 L1100 314 L1100 334" fill="none" stroke="#3fb950" stroke-width="2.4" marker-end="url(#ar-g)"/>
+  <path d="M170 418 L170 454" fill="none" stroke="#3fb950" stroke-width="2.4" marker-end="url(#ar-g)"/>
+  <path d="M420 418 L420 454" fill="none" stroke="#3fb950" stroke-width="2.4" marker-end="url(#ar-g)"/>
+  <path d="M1100 418 L1100 454" fill="none" stroke="#3fb950" stroke-width="2.4" marker-end="url(#ar-g)"/>
+  <path d="M1100 552 L1100 594" fill="none" stroke="#3fb950" stroke-width="2.4" marker-end="url(#ar-g)"/>
+  <path d="M834 372 L856 372" fill="none" stroke="#f85149" stroke-width="2.2" stroke-dasharray="4,3" marker-end="url(#ar-r)"/>
+  <path d="M834 632 L856 632" fill="none" stroke="#f85149" stroke-width="2.2" stroke-dasharray="4,3" marker-end="url(#ar-r)"/>
+  <path d="M170 584 L170 552" fill="none" stroke="#f85149" stroke-width="2.2" stroke-dasharray="4,3" marker-end="url(#ar-r)"/>
+  <path d="M420 584 L420 552" fill="none" stroke="#f85149" stroke-width="2.2" stroke-dasharray="4,3" marker-end="url(#ar-r)"/>
 
-  <path d="M700 246 L700 275 L340 275 L340 296" fill="none" stroke="#3fb950" stroke-width="2.2" marker-end="url(#ar-g)"/>
-  <path d="M700 246 L700 275 L1060 275 L1060 296" fill="none" stroke="#3fb950" stroke-width="2.2" marker-end="url(#ar-g)"/>
-
-  <path d="M220 358 L220 386" fill="none" stroke="#3fb950" stroke-width="2.2" marker-end="url(#ar-g)"/>
-  <path d="M460 358 L460 386" fill="none" stroke="#3fb950" stroke-width="2.2" marker-end="url(#ar-g)"/>
-  <path d="M1060 358 L1060 386" fill="none" stroke="#3fb950" stroke-width="2.2" marker-end="url(#ar-g)"/>
-  <path d="M1060 468 L1060 504" fill="none" stroke="#1f6feb" stroke-width="2.2" marker-end="url(#ar-b)"/>
-
-  <path d="M830 329 L836 329" fill="none" stroke="#f85149" stroke-width="2" stroke-dasharray="4,3" marker-end="url(#ar-r)"/>
-  <path d="M830 540 L836 540" fill="none" stroke="#f85149" stroke-width="2" stroke-dasharray="4,3" marker-end="url(#ar-r)"/>
-  <path d="M220 497 L220 464" fill="none" stroke="#f85149" stroke-width="2" stroke-dasharray="4,3" marker-end="url(#ar-r)"/>
-  <path d="M460 497 L460 464" fill="none" stroke="#f85149" stroke-width="2" stroke-dasharray="4,3" marker-end="url(#ar-r)"/>
-
-  <!-- ===== label chips (background rect + text, sit above lines) ===== -->
-  <g font-size="10">
-    <rect x="322" y="86" width="196" height="17" rx="4" fill="#0d1117"/>
-    <text x="420" y="98" text-anchor="middle" fill="#e3b341">NS delegado p/ Cloudflare</text>
-
-    <rect x="706" y="136" width="66" height="17" rx="4" fill="#0d1117"/>
-    <text x="712" y="148" fill="#c9d1d9">HTTPS 443</text>
-  </g>
-  <g font-size="10.5">
-    <rect x="418" y="253" width="208" height="18" rx="4" fill="#0d1117"/>
-    <text x="522" y="266" text-anchor="middle" fill="#56d364">app.neshiku.com.br · HTTPS 443</text>
-
-    <rect x="778" y="253" width="208" height="18" rx="4" fill="#0d1117"/>
-    <text x="882" y="266" text-anchor="middle" fill="#56d364">api.neshiku.com.br · HTTPS 443</text>
-  </g>
-  <g font-size="9">
-    <rect x="770" y="277" width="226" height="14" rx="3" fill="#0d1117"/>
-    <text x="883" y="287" text-anchor="middle" fill="#8b949e">origem real: JS do navegador (SPA React) — não há front-end server</text>
-  </g>
+  <!-- ================= chips de rótulo ================= -->
   <g font-size="9.5">
-    <rect x="122" y="365" width="88" height="16" rx="4" fill="#0d1117"/>
-    <text x="166" y="377" text-anchor="middle" fill="#56d364">origem primária</text>
+    <rect x="272" y="42" width="284" height="17" rx="4" fill="var(--fundo, #0d1117)"/>
+    <text x="414" y="55" text-anchor="middle" fill="#e3b341">NS delegado → ashton / itzel .ns.cloudflare.com</text>
 
-    <rect x="470" y="365" width="102" height="16" rx="4" fill="#0d1117"/>
-    <text x="521" y="377" text-anchor="middle" fill="#56d364">origem secundária</text>
+    <rect x="708" y="126" width="252" height="17" rx="4" fill="var(--fundo, #0d1117)"/>
+    <text x="714" y="139" fill="#c9d1d9">HTTPS 443 · TLS nº1 termina no edge Cloudflare</text>
 
-    <rect x="1071" y="478" width="176" height="16" rx="4" fill="#0d1117"/>
-    <text x="1079" y="490" fill="#79c0ff">SigV4 (IAM) · sem porta pública</text>
+    <rect x="306" y="316" width="244" height="16" rx="4" fill="var(--fundo, #0d1117)"/>
+    <text x="312" y="328" font-size="9" fill="#56d364">app.neshiku.com.br · HTTPS 443 (TLS nº2, cert ACM)</text>
+
+    <rect x="850" y="316" width="250" height="16" rx="4" fill="var(--fundo, #0d1117)"/>
+    <text x="856" y="328" font-size="9" fill="#56d364">api.neshiku.com.br · HTTPS 443 + X-Origin-Verify</text>
+
+    <rect x="180" y="426" width="104" height="16" rx="4" fill="var(--fundo, #0d1117)"/>
+    <text x="232" y="438" text-anchor="middle" font-size="9" fill="#56d364">origem primária</text>
+
+    <rect x="430" y="426" width="152" height="16" rx="4" fill="var(--fundo, #0d1117)"/>
+    <text x="506" y="438" text-anchor="middle" font-size="9" fill="#56d364">origem secundária (failover)</text>
+
+    <rect x="1108" y="428" width="238" height="16" rx="4" fill="var(--fundo, #0d1117)"/>
+    <text x="1114" y="440" font-size="9" fill="#79c0ff">integração AWS_PROXY (invoca o Lambda)</text>
+
+    <rect x="1108" y="562" width="256" height="16" rx="4" fill="var(--fundo, #0d1117)"/>
+    <text x="1114" y="574" font-size="9" fill="#d2a8ff">HTTPS 443 · SigV4 (IAM) · sem IP público</text>
   </g>
 
-  <!-- ===== Registro.br ===== -->
-  <rect x="20" y="76" width="220" height="52" rx="9" fill="#2b2111" stroke="#d29922" stroke-width="1.6"/>
-  <text x="130" y="98" text-anchor="middle" font-size="13" font-weight="700" fill="#e3b341">Registro.br</text>
-  <text x="130" y="114" text-anchor="middle" font-size="10" fill="#c9d1d9">Domínio neshiku.com.br</text>
+  <!-- ================= Registro.br ================= -->
+  <rect x="20" y="34" width="244" height="64" rx="9" fill="#2b2111" stroke="#d29922" stroke-width="1.6"/>
+  <text x="142" y="56" text-anchor="middle" font-size="13" font-weight="700" fill="#e3b341">Registro.br</text>
+  <text x="142" y="72" text-anchor="middle" font-size="10" fill="#c9d1d9">Domínio neshiku.com.br</text>
+  <text x="142" y="87" text-anchor="middle" font-size="9" fill="#8b949e">registrador — só delega os nameservers</text>
 
-  <!-- ===== Usuario ===== -->
-  <rect x="600" y="76" width="200" height="52" rx="9" fill="#0d1b2e" stroke="#58a6ff" stroke-width="1.6"/>
-  <text x="700" y="98" text-anchor="middle" font-size="14" font-weight="700" fill="#79c0ff">Usuário</text>
-  <text x="700" y="114" text-anchor="middle" font-size="11" fill="#c9d1d9">Navegador (Internet)</text>
+  <!-- ================= Usuário ================= -->
+  <rect x="560" y="34" width="280" height="84" rx="9" fill="#0d1b2e" stroke="#58a6ff" stroke-width="1.6"/>
+  <text x="700" y="55" text-anchor="middle" font-size="14" font-weight="700" fill="#79c0ff">Usuário — navegador</text>
+  <text x="700" y="71" text-anchor="middle" font-size="10" fill="#c9d1d9">Internet pública</text>
+  <text x="700" y="88" text-anchor="middle" font-size="9" fill="#8b949e">ORIGEM REAL DAS CHAMADAS À API: o próprio JS do</text>
+  <text x="700" y="100" text-anchor="middle" font-size="9" fill="#8b949e">SPA React (axios) rodando aqui — não há front-end</text>
+  <text x="700" y="112" text-anchor="middle" font-size="9" fill="#8b949e">server fazendo proxy; o front-end é só arquivo estático</text>
 
-  <!-- ===== Cloudflare ===== -->
-  <rect x="480" y="160" width="440" height="86" rx="11" fill="#331c09" stroke="#f0883e" stroke-width="2"/>
-  <text x="700" y="184" text-anchor="middle" font-size="15" font-weight="700" fill="#ffa657">Cloudflare — DNS + Proxy Reverso</text>
-  <text x="700" y="201" text-anchor="middle" font-size="11" fill="#c9d1d9">Zona: neshiku.com.br · Termina/repassa HTTPS (443) · WAF básico</text>
-  <text x="700" y="217" text-anchor="middle" font-size="11" fill="#c9d1d9">CNAME app → CloudFront   |   CNAME api → API Gateway</text>
-  <text x="700" y="233" text-anchor="middle" font-size="10.5" font-weight="700" fill="#d2a8ff">Transform Rule: injeta header X-Origin-Verify nas reqs p/ api.*</text>
+  <!-- ================= Cloudflare ================= -->
+  <rect x="380" y="162" width="640" height="124" rx="11" fill="#331c09" stroke="#f0883e" stroke-width="2"/>
+  <text x="700" y="184" text-anchor="middle" font-size="15" font-weight="700" fill="#ffa657">Cloudflare (plano free) — DNS autoritativo + Proxy reverso</text>
+  <text x="700" y="202" text-anchor="middle" font-size="10" fill="#c9d1d9">Zona neshiku.com.br · Universal SSL no edge · modo SSL/TLS: Full (reencripta p/ a origem)</text>
+  <text x="700" y="219" text-anchor="middle" font-size="10" fill="#c9d1d9">CNAME app → d2q2k05w0uyq82.cloudfront.net   (proxied / nuvem laranja)</text>
+  <text x="700" y="234" text-anchor="middle" font-size="10" fill="#c9d1d9">CNAME api → d-rzvh9g1a2d.execute-api.us-east-2.amazonaws.com   (proxied)</text>
+  <text x="700" y="252" text-anchor="middle" font-size="10.5" font-weight="700" fill="#d2a8ff">Transform Rule "Origin verify - API": injeta o header X-Origin-Verify nas reqs p/ api.*</text>
+  <text x="700" y="268" text-anchor="middle" font-size="9" fill="#8b949e">Única regra configurada pelo grupo (sem WAF/rate-limit próprios) · "Always Use HTTPS" NÃO está ativo</text>
+  <text x="700" y="280" text-anchor="middle" font-size="9" fill="#8b949e">Modo Full: a 2ª perna TLS é criptografada, mas a Cloudflare não valida o certificado da origem</text>
 
-  <!-- ===== CloudFront ===== -->
-  <rect x="110" y="300" width="460" height="58" rx="9" fill="#0d2818" stroke="#3fb950" stroke-width="1.6"/>
-  <text x="340" y="322" text-anchor="middle" font-size="14" font-weight="700" fill="#56d364">Amazon CloudFront (CDN)</text>
-  <text x="340" y="339" text-anchor="middle" font-size="10.5" fill="#c9d1d9">Cert. ACM (us-east-1) · Origin Access Control (OAC) · Origin Group c/ failover 403/404/5xx</text>
+  <!-- ================= CloudFront ================= -->
+  <rect x="60" y="334" width="480" height="84" rx="9" fill="#0d2818" stroke="#3fb950" stroke-width="1.6"/>
+  <text x="300" y="355" text-anchor="middle" font-size="13.5" font-weight="700" fill="#56d364">Amazon CloudFront — E107CAQRHXIBU9</text>
+  <text x="300" y="371" text-anchor="middle" font-size="9.5" fill="#c9d1d9">d2q2k05w0uyq82.cloudfront.net · Alternate domain: app.neshiku.com.br</text>
+  <text x="300" y="385" text-anchor="middle" font-size="9.5" fill="#c9d1d9">Certificado ACM (us-east-1) · Origin Access Control (OAC)</text>
+  <text x="300" y="400" text-anchor="middle" font-size="9.5" fill="#c9d1d9">MECANISMO DE DISTRIBUIÇÃO: Origin Group com failover</text>
+  <text x="300" y="412" text-anchor="middle" font-size="9" fill="#8b949e">dispara para a 2ª origem em 403/404/500/502/503/504</text>
 
-  <!-- ===== API Gateway ===== -->
-  <rect x="840" y="300" width="440" height="58" rx="9" fill="#0d1f3d" stroke="#1f6feb" stroke-width="1.6"/>
-  <text x="1060" y="322" text-anchor="middle" font-size="14" font-weight="700" fill="#79c0ff">Amazon API Gateway (HTTP API)</text>
-  <text x="1060" y="339" text-anchor="middle" font-size="10.5" fill="#c9d1d9">Custom domain · Cert. ACM (us-east-2) · rotas explícitas · métricas detalhadas por rota</text>
+  <!-- ================= Bloqueio 1 ================= -->
+  <rect x="580" y="334" width="252" height="84" rx="9" fill="#3c1618" stroke="#f85149" stroke-width="1.6"/>
+  <text x="706" y="354" text-anchor="middle" font-size="11" font-weight="700" letter-spacing="0.5" fill="#ff7b72">BLOQUEADO</text>
+  <text x="706" y="370" text-anchor="middle" font-size="9" fill="#e6edf3">Internet → URL crua do API Gateway</text>
+  <text x="706" y="382" text-anchor="middle" font-size="8" fill="#c9d1d9">vfb3b537c6.execute-api.us-east-2.amazonaws.com</text>
+  <text x="706" y="396" text-anchor="middle" font-size="9" fill="#e6edf3">sem X-Origin-Verify → HTTP 403</text>
+  <text x="706" y="410" text-anchor="middle" font-size="8.5" fill="#ffa198">onde bloqueia: código do Lambda (index.js)</text>
 
-  <!-- ===== Badge 1: API GW blocked ===== -->
-  <rect x="580" y="300" width="250" height="58" rx="9" fill="#3c1618" stroke="#f85149" stroke-width="1.6"/>
-  <text x="705" y="319" text-anchor="middle" font-size="11" font-weight="700" letter-spacing="0.5" fill="#ff7b72">BLOQUEADO</text>
-  <text x="705" y="335" text-anchor="middle" font-size="9.5" fill="#e6edf3">Internet → URL crua do API Gateway</text>
-  <text x="705" y="348" text-anchor="middle" font-size="9" fill="#c9d1d9">(sem header X-Origin-Verify → 403)</text>
+  <!-- ================= API Gateway ================= -->
+  <rect x="860" y="334" width="480" height="84" rx="9" fill="#0d1f3d" stroke="#1f6feb" stroke-width="1.6"/>
+  <text x="1100" y="355" text-anchor="middle" font-size="13.5" font-weight="700" fill="#79c0ff">Amazon API Gateway (HTTP API) — vfb3b537c6</text>
+  <text x="1100" y="371" text-anchor="middle" font-size="9.5" fill="#c9d1d9">Custom domain api.neshiku.com.br · cert. ACM (us-east-2) · stage $default</text>
+  <text x="1100" y="385" text-anchor="middle" font-size="9.5" fill="#c9d1d9">Target: d-rzvh9g1a2d.execute-api.us-east-2.amazonaws.com</text>
+  <text x="1100" y="400" text-anchor="middle" font-size="9.5" fill="#c9d1d9">5 rotas explícitas · CORS restrito a GET/POST/PATCH/DELETE/OPTIONS</text>
+  <text x="1100" y="412" text-anchor="middle" font-size="9" fill="#8b949e">DetailedMetricsEnabled: true (métricas por rota — ver Diagrama 2)</text>
 
-  <!-- ===== S3 buckets ===== -->
-  <rect x="110" y="390" width="220" height="70" rx="9" fill="#0d2818" stroke="#3fb950" stroke-width="1.6"/>
-  <text x="220" y="412" text-anchor="middle" font-size="12.5" font-weight="700" fill="#56d364">S3 — us-east-2</text>
-  <text x="220" y="428" text-anchor="middle" font-size="10" fill="#c9d1d9">todo-app-neshiku-frontend-1</text>
-  <text x="220" y="442" text-anchor="middle" font-size="9.5" fill="#8b949e">Bucket privado (só via OAC)</text>
+  <!-- ================= S3 buckets ================= -->
+  <rect x="60" y="454" width="230" height="96" rx="9" fill="#0d2818" stroke="#3fb950" stroke-width="1.6"/>
+  <text x="175" y="475" text-anchor="middle" font-size="12" font-weight="700" fill="#56d364">Amazon S3 — us-east-2</text>
+  <text x="175" y="491" text-anchor="middle" font-size="9.5" fill="#c9d1d9">todo-app-neshiku-frontend-1</text>
+  <text x="175" y="506" text-anchor="middle" font-size="9" fill="#8b949e">build do React (arquivos estáticos)</text>
+  <text x="175" y="521" text-anchor="middle" font-size="9" fill="#8b949e">Block Public Access ativo</text>
+  <text x="175" y="536" text-anchor="middle" font-size="9" fill="#8b949e">policy: só o OAC desta distribuição</text>
 
-  <rect x="350" y="390" width="220" height="70" rx="9" fill="#0d2818" stroke="#3fb950" stroke-width="1.6"/>
-  <text x="460" y="412" text-anchor="middle" font-size="12.5" font-weight="700" fill="#56d364">S3 — us-west-2</text>
-  <text x="460" y="428" text-anchor="middle" font-size="10" fill="#c9d1d9">todo-app-neshiku-frontend-2</text>
-  <text x="460" y="442" text-anchor="middle" font-size="9.5" fill="#8b949e">Bucket privado (só via OAC)</text>
+  <rect x="310" y="454" width="230" height="96" rx="9" fill="#0d2818" stroke="#3fb950" stroke-width="1.6"/>
+  <text x="425" y="475" text-anchor="middle" font-size="12" font-weight="700" fill="#56d364">Amazon S3 — us-west-2</text>
+  <text x="425" y="491" text-anchor="middle" font-size="9.5" fill="#c9d1d9">todo-app-neshiku-frontend-2</text>
+  <text x="425" y="506" text-anchor="middle" font-size="9" fill="#8b949e">cópia idêntica do mesmo build</text>
+  <text x="425" y="521" text-anchor="middle" font-size="9" fill="#8b949e">Block Public Access ativo</text>
+  <text x="425" y="536" text-anchor="middle" font-size="9" fill="#8b949e">policy: só o OAC desta distribuição</text>
 
-  <!-- ===== Lambda ===== -->
-  <rect x="840" y="390" width="440" height="78" rx="9" fill="#0d1f3d" stroke="#1f6feb" stroke-width="1.6"/>
-  <text x="1060" y="412" text-anchor="middle" font-size="13.5" font-weight="700" fill="#79c0ff">AWS Lambda — TodoFunction</text>
-  <text x="1060" y="428" text-anchor="middle" font-size="10" fill="#c9d1d9">Node.js 18.x · valida header X-Origin-Verify (403 se ausente/errado)</text>
-  <text x="1060" y="443" text-anchor="middle" font-size="10" fill="#c9d1d9">IAM Role restrita (DynamoDBCrudPolicy só na tabela todos-table)</text>
-  <text x="1060" y="460" text-anchor="middle" font-size="9.5" fill="#56d9d3">gera logs estruturados → ver Diagrama 2 (Observabilidade)</text>
+  <!-- ================= Lambda ================= -->
+  <rect x="860" y="454" width="480" height="98" rx="9" fill="#0d1f3d" stroke="#1f6feb" stroke-width="1.6"/>
+  <text x="1100" y="475" text-anchor="middle" font-size="13" font-weight="700" fill="#79c0ff">AWS Lambda — sam-app-TodoFunction-ZBJ9ee0dV1L9</text>
+  <text x="1100" y="491" text-anchor="middle" font-size="9.5" fill="#c9d1d9">Node.js 18.x · Express + serverless-http · 128 MB · timeout 10s</text>
+  <text x="1100" y="506" text-anchor="middle" font-size="9.5" fill="#ffa657">CONTROLE DE ACESSO: valida X-Origin-Verify (env ORIGIN_SECRET) → 403 se faltar</text>
+  <text x="1100" y="521" text-anchor="middle" font-size="9.5" fill="#c9d1d9">IAM Role própria: DynamoDBCrudPolicy restrita à tabela todos-table</text>
+  <text x="1100" y="536" text-anchor="middle" font-size="9" fill="#56d9d3">gera os logs estruturados JSON → ver Diagrama 2</text>
+  <text x="1100" y="547" text-anchor="middle" font-size="8.5" fill="#8b949e">sem VPC (roda na rede gerenciada da AWS — topologia interna não visível ao grupo)</text>
 
-  <!-- ===== DynamoDB ===== -->
-  <rect x="840" y="508" width="440" height="65" rx="9" fill="#251433" stroke="#a371f7" stroke-width="1.6"/>
-  <text x="1060" y="529" text-anchor="middle" font-size="13.5" font-weight="700" fill="#d2a8ff">Amazon DynamoDB</text>
-  <text x="1060" y="545" text-anchor="middle" font-size="10" fill="#c9d1d9">Tabela todos-table (PK: id) · PAY_PER_REQUEST</text>
-  <text x="1060" y="559" text-anchor="middle" font-size="10" fill="#8b949e">Sem endpoint público · acessível só pela role do Lambda</text>
+  <!-- ================= DynamoDB ================= -->
+  <rect x="860" y="594" width="480" height="82" rx="9" fill="#251433" stroke="#a371f7" stroke-width="1.6"/>
+  <text x="1100" y="615" text-anchor="middle" font-size="13" font-weight="700" fill="#d2a8ff">Amazon DynamoDB — tabela todos-table</text>
+  <text x="1100" y="631" text-anchor="middle" font-size="9.5" fill="#c9d1d9">PK: id (String) · PAY_PER_REQUEST · região us-east-2</text>
+  <text x="1100" y="646" text-anchor="middle" font-size="9.5" fill="#c9d1d9">LIMITE PRIVADO: não expõe porta, IP ou endpoint navegável</text>
+  <text x="1100" y="660" text-anchor="middle" font-size="9" fill="#8b949e">só a IAM Role do TodoFunction tem permissão nesta tabela</text>
+  <text x="1100" y="671" text-anchor="middle" font-size="8.5" fill="#8b949e">partições/replicação internas: administradas pela AWS, não visíveis ao grupo</text>
 
-  <!-- ===== Badge 2: DynamoDB blocked ===== -->
-  <rect x="580" y="508" width="250" height="65" rx="9" fill="#3c1618" stroke="#f85149" stroke-width="1.6"/>
-  <text x="705" y="529" text-anchor="middle" font-size="11" font-weight="700" letter-spacing="0.5" fill="#ff7b72">BLOQUEADO</text>
-  <text x="705" y="545" text-anchor="middle" font-size="9.5" fill="#e6edf3">Internet → DynamoDB direto</text>
-  <text x="705" y="558" text-anchor="middle" font-size="9" fill="#c9d1d9">(sem role IAM / assinatura SigV4)</text>
+  <!-- ================= Bloqueio 2 ================= -->
+  <rect x="580" y="594" width="252" height="82" rx="9" fill="#3c1618" stroke="#f85149" stroke-width="1.6"/>
+  <text x="706" y="616" text-anchor="middle" font-size="11" font-weight="700" letter-spacing="0.5" fill="#ff7b72">BLOQUEADO</text>
+  <text x="706" y="633" text-anchor="middle" font-size="9" fill="#e6edf3">Internet → DynamoDB direto</text>
+  <text x="706" y="648" text-anchor="middle" font-size="8.5" fill="#c9d1d9">chamada sem credencial/assinatura SigV4</text>
+  <text x="706" y="664" text-anchor="middle" font-size="8.5" fill="#ffa198">onde bloqueia: endpoint da própria AWS (IAM)</text>
 
-  <!-- ===== Badge 3: S3 blocked ===== -->
-  <rect x="110" y="500" width="460" height="55" rx="9" fill="#3c1618" stroke="#f85149" stroke-width="1.6"/>
-  <text x="340" y="518" text-anchor="middle" font-size="11" font-weight="700" letter-spacing="0.5" fill="#ff7b72">BLOQUEADO</text>
-  <text x="340" y="532" text-anchor="middle" font-size="9.5" fill="#e6edf3">Internet → buckets S3 direto (sem passar pelo CloudFront/OAC)</text>
-  <text x="340" y="545" text-anchor="middle" font-size="9" fill="#c9d1d9">"Block Public Access" ativo nos dois buckets</text>
+  <!-- ================= Bloqueio 3 (S3) ================= -->
+  <rect x="60" y="584" width="480" height="76" rx="9" fill="#3c1618" stroke="#f85149" stroke-width="1.6"/>
+  <text x="300" y="605" text-anchor="middle" font-size="11" font-weight="700" letter-spacing="0.5" fill="#ff7b72">BLOQUEADO</text>
+  <text x="300" y="621" text-anchor="middle" font-size="9" fill="#e6edf3">Internet → URL direta dos buckets S3 (sem passar pelo CloudFront)</text>
+  <text x="300" y="636" text-anchor="middle" font-size="8.5" fill="#c9d1d9">ex.: todo-app-neshiku-frontend-1.s3.us-east-2.amazonaws.com → 403</text>
+  <text x="300" y="651" text-anchor="middle" font-size="8.5" fill="#ffa198">onde bloqueia: Block Public Access + bucket policy que só aceita o OAC</text>
 
-  <text x="700" y="595" text-anchor="middle" font-size="10" fill="#6e7681">Domínio: neshiku.com.br · Front-end: app.neshiku.com.br · Back-end/API: api.neshiku.com.br</text>
+  <!-- ================= rodapé ================= -->
+  <text x="700" y="706" text-anchor="middle" font-size="9.5" fill="#8b949e">PORTAS/PROTOCOLOS: todo o caminho público usa apenas HTTPS/TCP 443. CloudFront→S3 e Lambda→DynamoDB usam a API interna da AWS (HTTPS 443, autenticada), sem porta ou IP público exposto.</text>
+  <text x="700" y="722" text-anchor="middle" font-size="9.5" fill="#8b949e">TERMINAÇÃO TLS: nº1 no edge da Cloudflare (Universal SSL) · nº2 no CloudFront e no custom domain do API Gateway (certificados ACM). Não há tráfego em HTTP puro entre Cloudflare e AWS (modo Full).</text>
+  <text x="700" y="738" text-anchor="middle" font-size="9.5" fill="#8b949e">DNS ≠ TRÁFEGO: a resolução (linha cinza tracejada) acontece uma vez no navegador e devolve um IP do edge da Cloudflare; o tráfego HTTPS (linha verde) vai depois direto a esse edge.</text>
+  <text x="700" y="762" text-anchor="middle" font-size="10" fill="#6e7681">Conta AWS 005042706931 · stack SAM "sam-app" (us-east-2) · front-end replicado em us-east-2 + us-west-2 · Domínio neshiku.com.br</text>
   </svg>
   </div>
 
-  <h2>Diagrama 2 — Observabilidade (Entrega 2)</h2>
+  <h2>Diagrama 2 — Observabilidade</h2>
   <p class="sub">Componente que gera o dado → Coleta/encaminhamento → Armazenamento/consulta → Painel</p>
   <div class="svgcard">
-  <svg viewBox="0 0 1400 660" role="img">
+  <svg viewBox="0 0 1400 700" role="img">
   <title>Fluxo de observabilidade do Todo App</title>
-  <desc>Quatro fontes de dados (canário de disponibilidade, backend Lambda, API Gateway e DynamoDB) alimentam o CloudWatch, que armazena logs e métricas e apresenta 4 painéis num dashboard, acessível só por usuários IAM da conta autenticados no Console.</desc>
+  <desc>Quatro fontes de dados — canário de disponibilidade, Lambda do back-end, API Gateway e DynamoDB — alimentam o CloudWatch (Logs, Metric Filters, Metrics e Logs Insights), que apresenta quatro painéis num dashboard acessível apenas por identidades IAM da conta AWS.</desc>
   <defs>
     <marker id="ar-c" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7.5" markerHeight="7.5" orient="auto-start-reverse">
       <path d="M2 1.5L8 5L2 8.5" fill="none" stroke="#39c5cf" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>
@@ -187,102 +235,129 @@
       <path d="M2 1.5L8 5L2 8.5" fill="none" stroke="#8b949e" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>
     </marker>
   </defs>
-  <rect width="1400" height="660" fill="#0d1117"/>
+  <rect width="1400" height="700" fill="var(--fundo, #0d1117)"/>
 
-  <!-- column x-starts: 40 / 370 / 700 / 1030, width 300 each -->
+  <text x="14" y="46" font-size="8" font-weight="700" fill="#6e7681">1. GERA</text>
+  <text x="14" y="246" font-size="8" font-weight="700" fill="#6e7681">2. COLETA</text>
+  <text x="14" y="344" font-size="8" font-weight="700" fill="#6e7681">3. ARMAZENA</text>
+  <text x="14" y="355" font-size="8" font-weight="700" fill="#6e7681">E CONSULTA</text>
+  <text x="14" y="470" font-size="8" font-weight="700" fill="#6e7681">4. PAINEL</text>
 
-  <!-- ===== Lane 1: canário de disponibilidade ===== -->
-  <rect x="40" y="34" width="300" height="42" rx="8" fill="#1c2333" stroke="#8b949e" stroke-width="1.4"/>
-  <text x="190" y="50" text-anchor="middle" font-size="11" font-weight="700" fill="#c9d1d9">Amazon EventBridge Scheduler</text>
-  <text x="190" y="65" text-anchor="middle" font-size="9.5" fill="#8b949e">rate(5 minutes) — dispara a checagem</text>
-  <path d="M190 76 L190 108" fill="none" stroke="#8b949e" stroke-width="2" marker-end="url(#ar-n2)"/>
+  <!-- ===== Lane 1: canário ===== -->
+  <rect x="80" y="30" width="290" height="46" rx="8" fill="#1c2333" stroke="#8b949e" stroke-width="1.4"/>
+  <text x="225" y="48" text-anchor="middle" font-size="11" font-weight="700" fill="#c9d1d9">Amazon EventBridge — regra agendada</text>
+  <text x="225" y="64" text-anchor="middle" font-size="8.5" fill="#8b949e">todo-app-healthcheck-schedule · rate(5 minutes)</text>
+  <path d="M225 76 L225 104" fill="none" stroke="#8b949e" stroke-width="2" stroke-dasharray="5,4" marker-end="url(#ar-n2)"/>
 
-  <rect x="40" y="108" width="300" height="72" rx="9" fill="#0d1f3d" stroke="#1f6feb" stroke-width="1.6"/>
-  <text x="190" y="128" text-anchor="middle" font-size="12" font-weight="700" fill="#79c0ff">Lambda — HealthCheckFunction</text>
-  <text x="190" y="144" text-anchor="middle" font-size="9.5" fill="#c9d1d9">canário: GET app.neshiku.com.br</text>
-  <text x="190" y="158" text-anchor="middle" font-size="9.5" fill="#c9d1d9">e api.neshiku.com.br/todos</text>
-  <text x="190" y="172" text-anchor="middle" font-size="9" fill="#8b949e">(mesmo caminho de um usuário real)</text>
-  <path d="M190 180 L190 208" fill="none" stroke="#39c5cf" stroke-width="2" marker-end="url(#ar-c)"/>
+  <rect x="80" y="104" width="290" height="84" rx="9" fill="#0d1f3d" stroke="#1f6feb" stroke-width="1.6"/>
+  <text x="225" y="124" text-anchor="middle" font-size="11.5" font-weight="700" fill="#79c0ff">Lambda — HealthCheckFunction</text>
+  <text x="225" y="138" text-anchor="middle" font-size="8" fill="#8b949e">sam-app-HealthCheckFunction-BlhQoK8Bfj8P</text>
+  <text x="225" y="153" text-anchor="middle" font-size="9" fill="#c9d1d9">GET https://app.neshiku.com.br/</text>
+  <text x="225" y="166" text-anchor="middle" font-size="9" fill="#c9d1d9">GET https://api.neshiku.com.br/todos</text>
+  <text x="225" y="181" text-anchor="middle" font-size="8.5" fill="#8b949e">passa pela Cloudflare, igual a um usuário real</text>
+  <path d="M225 188 L225 214" fill="none" stroke="#39c5cf" stroke-width="2" marker-end="url(#ar-c)"/>
+  <text x="231" y="205" font-size="8" fill="#7ee3e8">stdout (automático)</text>
 
-  <rect x="40" y="208" width="300" height="58" rx="9" fill="#161b22" stroke="#39c5cf" stroke-width="1.6"/>
-  <text x="190" y="230" text-anchor="middle" font-size="11.5" font-weight="700" fill="#7ee3e8">CloudWatch Logs</text>
-  <text x="190" y="246" text-anchor="middle" font-size="9.5" fill="#c9d1d9">log group HealthCheckFunction</text>
-  <text x="190" y="259" text-anchor="middle" font-size="9" fill="#8b949e">1 linha JSON por checagem · retém 30 dias</text>
-  <path d="M190 266 L190 296" fill="none" stroke="#39c5cf" stroke-width="2" marker-end="url(#ar-c)"/>
-  <text x="196" y="284" font-size="8.5" fill="#7ee3e8">Metric Filter</text>
+  <rect x="80" y="214" width="290" height="66" rx="9" fill="#161b22" stroke="#39c5cf" stroke-width="1.6"/>
+  <text x="225" y="234" text-anchor="middle" font-size="11" font-weight="700" fill="#7ee3e8">CloudWatch Logs</text>
+  <text x="225" y="249" text-anchor="middle" font-size="8.5" fill="#c9d1d9">/aws/lambda/…HealthCheckFunction…</text>
+  <text x="225" y="262" text-anchor="middle" font-size="8.5" fill="#8b949e">1 linha JSON por checagem (target, result,</text>
+  <text x="225" y="273" text-anchor="middle" font-size="8.5" fill="#8b949e">http_status, latency_ms) · retenção 30 dias</text>
+  <path d="M225 280 L225 310" fill="none" stroke="#39c5cf" stroke-width="2" marker-end="url(#ar-c)"/>
+  <text x="231" y="298" font-size="8" fill="#7ee3e8">3 Metric Filters</text>
 
-  <rect x="40" y="296" width="300" height="68" rx="9" fill="#161b22" stroke="#39c5cf" stroke-width="1.6"/>
-  <text x="190" y="316" text-anchor="middle" font-size="11.5" font-weight="700" fill="#7ee3e8">CloudWatch Metrics</text>
-  <text x="190" y="332" text-anchor="middle" font-size="9.5" fill="#c9d1d9">namespace TodoApp/Availability</text>
-  <text x="190" y="346" text-anchor="middle" font-size="9" fill="#8b949e">dimensão: Target (frontend | api)</text>
-  <text x="190" y="358" text-anchor="middle" font-size="8.5" fill="#56d9d3">→ Painel 1 · Disponibilidade</text>
+  <rect x="80" y="310" width="290" height="82" rx="9" fill="#161b22" stroke="#39c5cf" stroke-width="1.6"/>
+  <text x="225" y="330" text-anchor="middle" font-size="11" font-weight="700" fill="#7ee3e8">CloudWatch Metrics</text>
+  <text x="225" y="345" text-anchor="middle" font-size="8.5" fill="#c9d1d9">namespace TodoApp/Availability (custom)</text>
+  <text x="225" y="358" text-anchor="middle" font-size="8.5" fill="#c9d1d9">AvailabilitySuccess / Failure / Latency</text>
+  <text x="225" y="370" text-anchor="middle" font-size="8.5" fill="#8b949e">dimensão: Target (frontend | api)</text>
+  <text x="225" y="385" text-anchor="middle" font-size="8.5" font-weight="700" fill="#56d9d3">→ Painel 1 · Disponibilidade</text>
 
-  <!-- ===== Lane 2: backend TodoFunction (logs) ===== -->
-  <rect x="370" y="108" width="300" height="72" rx="9" fill="#0d1f3d" stroke="#1f6feb" stroke-width="1.6"/>
-  <text x="520" y="128" text-anchor="middle" font-size="12" font-weight="700" fill="#79c0ff">Lambda — TodoFunction</text>
-  <text x="520" y="144" text-anchor="middle" font-size="9.5" fill="#c9d1d9">mesma função do Diagrama 1</text>
-  <text x="520" y="158" text-anchor="middle" font-size="9.5" fill="#c9d1d9">loga cada requisição HTTP e cada</text>
-  <text x="520" y="172" text-anchor="middle" font-size="9.5" fill="#c9d1d9">chamada ao DynamoDB (JSON)</text>
-  <path d="M520 180 L520 208" fill="none" stroke="#39c5cf" stroke-width="2" marker-end="url(#ar-c)"/>
+  <!-- ===== Lane 2: TodoFunction ===== -->
+  <rect x="395" y="104" width="290" height="84" rx="9" fill="#0d1f3d" stroke="#1f6feb" stroke-width="1.6"/>
+  <text x="540" y="124" text-anchor="middle" font-size="11.5" font-weight="700" fill="#79c0ff">Lambda — TodoFunction</text>
+  <text x="540" y="138" text-anchor="middle" font-size="8" fill="#8b949e">sam-app-TodoFunction-ZBJ9ee0dV1L9 (o do Diagrama 1)</text>
+  <text x="540" y="153" text-anchor="middle" font-size="9" fill="#c9d1d9">loga 1 JSON por requisição (http_request)</text>
+  <text x="540" y="166" text-anchor="middle" font-size="9" fill="#c9d1d9">e 1 por chamada ao banco (db_operation)</text>
+  <text x="540" y="181" text-anchor="middle" font-size="8.5" fill="#8b949e">instrumentação escrita pelo grupo (index.js)</text>
+  <path d="M540 188 L540 214" fill="none" stroke="#39c5cf" stroke-width="2" marker-end="url(#ar-c)"/>
+  <text x="546" y="205" font-size="8" fill="#7ee3e8">stdout (automático)</text>
 
-  <rect x="370" y="208" width="300" height="58" rx="9" fill="#161b22" stroke="#39c5cf" stroke-width="1.6"/>
-  <text x="520" y="230" text-anchor="middle" font-size="11.5" font-weight="700" fill="#7ee3e8">CloudWatch Logs</text>
-  <text x="520" y="246" text-anchor="middle" font-size="9.5" fill="#c9d1d9">log group TodoFunction</text>
-  <text x="520" y="259" text-anchor="middle" font-size="9" fill="#8b949e">stdout do Lambda, automático · retém 30 dias</text>
-  <path d="M520 266 L520 296" fill="none" stroke="#39c5cf" stroke-width="2" marker-end="url(#ar-c)"/>
-  <text x="526" y="284" font-size="8.5" fill="#7ee3e8">consulta direta</text>
+  <rect x="395" y="214" width="290" height="66" rx="9" fill="#161b22" stroke="#39c5cf" stroke-width="1.6"/>
+  <text x="540" y="234" text-anchor="middle" font-size="11" font-weight="700" fill="#7ee3e8">CloudWatch Logs</text>
+  <text x="540" y="249" text-anchor="middle" font-size="8.5" fill="#c9d1d9">/aws/lambda/…TodoFunction…</text>
+  <text x="540" y="262" text-anchor="middle" font-size="8.5" fill="#8b949e">campos: route, status_code, duration_ms,</text>
+  <text x="540" y="273" text-anchor="middle" font-size="8.5" fill="#8b949e">operation, result, request_id · retenção 30 dias</text>
+  <path d="M540 280 L540 310" fill="none" stroke="#39c5cf" stroke-width="2" marker-end="url(#ar-c)"/>
+  <text x="546" y="298" font-size="8" fill="#7ee3e8">consulta ao abrir o painel</text>
 
-  <rect x="370" y="296" width="300" height="68" rx="9" fill="#161b22" stroke="#39c5cf" stroke-width="1.6"/>
-  <text x="520" y="316" text-anchor="middle" font-size="11.5" font-weight="700" fill="#7ee3e8">CloudWatch Logs Insights</text>
-  <text x="520" y="332" text-anchor="middle" font-size="9.5" fill="#c9d1d9">consulta ao log (sem métrica derivada)</text>
-  <text x="520" y="346" text-anchor="middle" font-size="9" fill="#8b949e">agrupa por rota / operação / status</text>
-  <text x="520" y="358" text-anchor="middle" font-size="8.5" fill="#56d9d3">→ Painel 3 (causas) · Painel 4 (falhas do banco)</text>
+  <rect x="395" y="310" width="290" height="82" rx="9" fill="#161b22" stroke="#39c5cf" stroke-width="1.6"/>
+  <text x="540" y="330" text-anchor="middle" font-size="11" font-weight="700" fill="#7ee3e8">CloudWatch Logs Insights</text>
+  <text x="540" y="345" text-anchor="middle" font-size="8.5" fill="#c9d1d9">consulta direta ao log (sem métrica derivada)</text>
+  <text x="540" y="358" text-anchor="middle" font-size="8.5" fill="#8b949e">stats count() by bin(5m), route / status_code</text>
+  <text x="540" y="372" text-anchor="middle" font-size="8.5" font-weight="700" fill="#56d9d3">→ Painel 3 (5xx por rota + causas)</text>
+  <text x="540" y="385" text-anchor="middle" font-size="8.5" font-weight="700" fill="#56d9d3">→ Painel 4 (falhas de acesso ao banco)</text>
 
-  <!-- ===== Lane 3: API Gateway (métrica nativa) ===== -->
-  <rect x="700" y="108" width="300" height="72" rx="9" fill="#0d1f3d" stroke="#1f6feb" stroke-width="1.6"/>
-  <text x="850" y="128" text-anchor="middle" font-size="12" font-weight="700" fill="#79c0ff">Amazon API Gateway (HTTP API)</text>
-  <text x="850" y="144" text-anchor="middle" font-size="9.5" fill="#c9d1d9">serviço gerenciado: já gera E publica</text>
-  <text x="850" y="158" text-anchor="middle" font-size="9.5" fill="#c9d1d9">a métrica sozinho (sem etapa de</text>
-  <text x="850" y="172" text-anchor="middle" font-size="9.5" fill="#c9d1d9">coleta separada)</text>
-  <path d="M850 180 L850 296" fill="none" stroke="#39c5cf" stroke-width="2" marker-end="url(#ar-c)"/>
-  <text x="856" y="240" font-size="8.5" fill="#7ee3e8">publicação nativa</text>
+  <!-- ===== Lane 3: API Gateway ===== -->
+  <rect x="710" y="104" width="290" height="84" rx="9" fill="#0d1f3d" stroke="#1f6feb" stroke-width="1.6"/>
+  <text x="855" y="124" text-anchor="middle" font-size="11.5" font-weight="700" fill="#79c0ff">API Gateway — vfb3b537c6</text>
+  <text x="855" y="140" text-anchor="middle" font-size="9" fill="#c9d1d9">serviço gerenciado: GERA e PUBLICA a</text>
+  <text x="855" y="153" text-anchor="middle" font-size="9" fill="#c9d1d9">métrica sozinho — não há etapa de coleta</text>
+  <text x="855" y="166" text-anchor="middle" font-size="9" fill="#c9d1d9">separada nem código do grupo envolvido</text>
+  <text x="855" y="181" text-anchor="middle" font-size="8.5" fill="#8b949e">só foi preciso ligar DetailedMetricsEnabled</text>
+  <path d="M855 188 L855 310" fill="none" stroke="#39c5cf" stroke-width="2" marker-end="url(#ar-c)"/>
+  <text x="861" y="238" font-size="8" fill="#7ee3e8">publicação nativa</text>
+  <text x="861" y="250" font-size="8" fill="#8b949e">(etapas 2 e 3 dentro</text>
+  <text x="861" y="261" font-size="8" fill="#8b949e">do mesmo serviço)</text>
 
-  <rect x="700" y="296" width="300" height="68" rx="9" fill="#161b22" stroke="#39c5cf" stroke-width="1.6"/>
-  <text x="850" y="316" text-anchor="middle" font-size="11.5" font-weight="700" fill="#7ee3e8">CloudWatch Metrics</text>
-  <text x="850" y="332" text-anchor="middle" font-size="9.5" fill="#c9d1d9">namespace AWS/ApiGateway</text>
-  <text x="850" y="346" text-anchor="middle" font-size="9" fill="#8b949e">dimensões: Route, Stage (DetailedMetrics)</text>
-  <text x="850" y="358" text-anchor="middle" font-size="8.5" fill="#56d9d3">→ Painéis 2, 3 (taxa) e 4</text>
+  <rect x="710" y="310" width="290" height="82" rx="9" fill="#161b22" stroke="#39c5cf" stroke-width="1.6"/>
+  <text x="855" y="330" text-anchor="middle" font-size="11" font-weight="700" fill="#7ee3e8">CloudWatch Metrics</text>
+  <text x="855" y="345" text-anchor="middle" font-size="8.5" fill="#c9d1d9">namespace AWS/ApiGateway</text>
+  <text x="855" y="358" text-anchor="middle" font-size="8" fill="#8b949e">dimensões reais: ApiId, Stage, Resource, Method</text>
+  <text x="855" y="372" text-anchor="middle" font-size="8.5" font-weight="700" fill="#56d9d3">→ Painel 2 (Latency p50/p95 por rota)</text>
+  <text x="855" y="385" text-anchor="middle" font-size="8" font-weight="700" fill="#56d9d3">→ Painel 3 (taxa agregada: 4xx+5xx ÷ Count)</text>
 
-  <!-- ===== Lane 4: DynamoDB (métrica nativa) ===== -->
-  <rect x="1030" y="108" width="300" height="72" rx="9" fill="#251433" stroke="#a371f7" stroke-width="1.6"/>
-  <text x="1180" y="128" text-anchor="middle" font-size="12" font-weight="700" fill="#d2a8ff">Amazon DynamoDB</text>
-  <text x="1180" y="144" text-anchor="middle" font-size="9.5" fill="#c9d1d9">serviço gerenciado: já gera E publica</text>
-  <text x="1180" y="158" text-anchor="middle" font-size="9.5" fill="#c9d1d9">a métrica sozinho (sem etapa de</text>
-  <text x="1180" y="172" text-anchor="middle" font-size="9.5" fill="#c9d1d9">coleta separada)</text>
-  <path d="M1180 180 L1180 296" fill="none" stroke="#39c5cf" stroke-width="2" marker-end="url(#ar-c)"/>
-  <text x="1186" y="240" font-size="8.5" fill="#7ee3e8">publicação nativa</text>
+  <!-- ===== Lane 4: DynamoDB ===== -->
+  <rect x="1025" y="104" width="290" height="84" rx="9" fill="#251433" stroke="#a371f7" stroke-width="1.6"/>
+  <text x="1170" y="124" text-anchor="middle" font-size="11.5" font-weight="700" fill="#d2a8ff">DynamoDB — todos-table</text>
+  <text x="1170" y="140" text-anchor="middle" font-size="9" fill="#c9d1d9">serviço gerenciado: GERA e PUBLICA a</text>
+  <text x="1170" y="153" text-anchor="middle" font-size="9" fill="#c9d1d9">métrica sozinho — sem configuração e</text>
+  <text x="1170" y="166" text-anchor="middle" font-size="9" fill="#c9d1d9">sem código do grupo envolvido</text>
+  <text x="1170" y="181" text-anchor="middle" font-size="8.5" fill="#8b949e">já vinha ligado por padrão</text>
+  <path d="M1170 188 L1170 310" fill="none" stroke="#39c5cf" stroke-width="2" marker-end="url(#ar-c)"/>
+  <text x="1176" y="238" font-size="8" fill="#7ee3e8">publicação nativa</text>
+  <text x="1176" y="250" font-size="8" fill="#8b949e">(etapas 2 e 3 dentro</text>
+  <text x="1176" y="261" font-size="8" fill="#8b949e">do mesmo serviço)</text>
 
-  <rect x="1030" y="296" width="300" height="68" rx="9" fill="#161b22" stroke="#39c5cf" stroke-width="1.6"/>
-  <text x="1180" y="316" text-anchor="middle" font-size="11.5" font-weight="700" fill="#7ee3e8">CloudWatch Metrics</text>
-  <text x="1180" y="332" text-anchor="middle" font-size="9.5" fill="#c9d1d9">namespace AWS/DynamoDB</text>
-  <text x="1180" y="346" text-anchor="middle" font-size="9" fill="#8b949e">dimensões: TableName, Operation</text>
-  <text x="1180" y="358" text-anchor="middle" font-size="8.5" fill="#56d9d3">→ Painel 4 · Banco de Dados</text>
+  <rect x="1025" y="310" width="290" height="82" rx="9" fill="#161b22" stroke="#39c5cf" stroke-width="1.6"/>
+  <text x="1170" y="330" text-anchor="middle" font-size="11" font-weight="700" fill="#7ee3e8">CloudWatch Metrics</text>
+  <text x="1170" y="345" text-anchor="middle" font-size="8.5" fill="#c9d1d9">namespace AWS/DynamoDB</text>
+  <text x="1170" y="358" text-anchor="middle" font-size="8.5" fill="#8b949e">dimensões: TableName, Operation</text>
+  <text x="1170" y="372" text-anchor="middle" font-size="8.5" font-weight="700" fill="#56d9d3">→ Painel 4 (SuccessfulRequestLatency</text>
+  <text x="1170" y="385" text-anchor="middle" font-size="8.5" font-weight="700" fill="#56d9d3">e RCU/WCU consumidas)</text>
 
-  <!-- ===== converge to dashboard ===== -->
-  <path d="M190 364 L190 392 L700 392 L700 414" fill="none" stroke="#39c5cf" stroke-width="2" marker-end="url(#ar-c)"/>
-  <path d="M520 364 L520 392 L700 392" fill="none" stroke="#39c5cf" stroke-width="2"/>
-  <path d="M850 364 L850 392" fill="none" stroke="#39c5cf" stroke-width="2"/>
-  <path d="M1180 364 L1180 392 L900 392" fill="none" stroke="#39c5cf" stroke-width="2"/>
+  <!-- ===== convergência ===== -->
+  <path d="M225 392 L225 414 L700 414 L700 436" fill="none" stroke="#39c5cf" stroke-width="2" marker-end="url(#ar-c)"/>
+  <path d="M540 392 L540 414" fill="none" stroke="#39c5cf" stroke-width="2"/>
+  <path d="M855 392 L855 414" fill="none" stroke="#39c5cf" stroke-width="2"/>
+  <path d="M1170 392 L1170 414 L700 414" fill="none" stroke="#39c5cf" stroke-width="2"/>
 
-  <rect x="40" y="414" width="1290" height="118" rx="11" fill="#0f2a2c" stroke="#39c5cf" stroke-width="2"/>
-  <text x="685" y="438" text-anchor="middle" font-size="14.5" font-weight="700" fill="#7ee3e8">Amazon CloudWatch Dashboard — "todo-app-observabilidade"</text>
-  <text x="685" y="456" text-anchor="middle" font-size="10.5" fill="#c9d1d9">1 Disponibilidade · 2 Desempenho · 3 Erros (taxa + causas) · 4 Banco de Dados</text>
-  <text x="685" y="475" text-anchor="middle" font-size="10" fill="#8b949e">Widgets tipo "metric" (séries do CloudWatch Metrics) e "log" (consultas do CloudWatch Logs Insights) na mesma tela</text>
-  <rect x="240" y="486" width="890" height="34" rx="7" fill="#1c1108" stroke="#d29922" stroke-width="1.4"/>
-  <text x="685" y="500" text-anchor="middle" font-size="10" font-weight="700" fill="#e3b341">Quem pode consultar:</text>
-  <text x="685" y="514" text-anchor="middle" font-size="9.5" fill="#c9d1d9">só usuários/roles IAM da conta AWS com permissão de leitura no CloudWatch, autenticados no Console — sem URL pública</text>
+  <!-- ===== Dashboard ===== -->
+  <rect x="80" y="436" width="1235" height="156" rx="11" fill="#0f2a2c" stroke="#39c5cf" stroke-width="2"/>
+  <text x="697" y="460" text-anchor="middle" font-size="14" font-weight="700" fill="#7ee3e8">Amazon CloudWatch Dashboard — "todo-app-observabilidade" (us-east-2)</text>
+  <text x="697" y="478" text-anchor="middle" font-size="10" fill="#c9d1d9">Painel 1 Disponibilidade · Painel 2 Desempenho · Painel 3 Erros · Painel 4 Banco de Dados</text>
+  <text x="697" y="494" text-anchor="middle" font-size="9" fill="#8b949e">Widgets tipo "metric" (séries do CloudWatch Metrics) e tipo "log" (consultas do Logs Insights) na mesma tela</text>
+  <text x="697" y="509" text-anchor="middle" font-size="9" fill="#e3b341">Definido como código no recurso AWS::CloudWatch::Dashboard em backend/template.yaml — reproduzível via sam deploy</text>
 
-  <text x="700" y="552" text-anchor="middle" font-size="10" fill="#6e7681">Retenção dos logs: 30 dias (RetentionInDays) · Namespaces custom: TodoApp/Availability · Namespaces nativos: AWS/ApiGateway, AWS/DynamoDB</text>
+  <rect x="140" y="518" width="1115" height="62" rx="7" fill="#1c1108" stroke="#d29922" stroke-width="1.4"/>
+  <text x="697" y="535" text-anchor="middle" font-size="10" font-weight="700" fill="#e3b341">QUEM PODE CONSULTAR OS DADOS DE OBSERVABILIDADE — e qual mecanismo controla esse acesso</text>
+  <text x="697" y="550" text-anchor="middle" font-size="9" fill="#c9d1d9">Somente usuários/roles IAM da conta AWS 005042706931 com permissão de leitura no CloudWatch</text>
+  <text x="697" y="562" text-anchor="middle" font-size="9" fill="#c9d1d9">(cloudwatch:GetDashboard / GetMetricData, logs:StartQuery / GetQueryResults), autenticados no Console da AWS —</text>
+  <text x="697" y="574" text-anchor="middle" font-size="9" fill="#8b949e">ou via AWS CLI/boto3 com as mesmas credenciais (é assim que o script observabilidade_testes.py lê os dados). Não há URL pública nem link anônimo.</text>
+
+  <text x="700" y="620" text-anchor="middle" font-size="8.5" fill="#8b949e">LIMITAÇÃO SINALIZADA: o widget "5xx por rota" usa Logs Insights porque a métrica nativa 5xxError com as dimensões Resource+Method não publicou datapoint nos testes reais (causa não confirmada — comportamento interno da AWS).</text>
+  <text x="700" y="636" text-anchor="middle" font-size="8.5" fill="#8b949e">LIMITAÇÃO SINALIZADA: como a AWS calcula e agrega internamente as métricas nativas (ex.: os percentis de latência do API Gateway) não é visível ao grupo — só o resultado já publicado é consumido.</text>
+  <text x="700" y="662" text-anchor="middle" font-size="9.5" fill="#6e7681">Retenção dos logs: 30 dias (RetentionInDays) · Namespace custom: TodoApp/Availability · Namespaces nativos: AWS/ApiGateway, AWS/DynamoDB</text>
   </svg>
   </div>
 
@@ -290,42 +365,386 @@
     <h3>Legenda (válida para os dois diagramas)</h3>
     <div class="sample">
       <svg viewBox="0 0 48 12"><path d="M2 6 L44 6" stroke="#3fb950" stroke-width="2.4" marker-end="url(#ar-g)"/></svg>
-      Fluxo da aplicação permitido (HTTPS/443, autenticado quando aplicável)
+      <span><strong>Fluxo da aplicação permitido</strong> — requisição HTTPS/443 (autenticada onde aplicável)</span>
     </div>
     <div class="sample">
       <svg viewBox="0 0 48 12"><path d="M2 6 L44 6" stroke="#f85149" stroke-width="2.2" stroke-dasharray="4,3" marker-end="url(#ar-r)"/></svg>
-      Fluxo bloqueado por firewall/controle de acesso
+      <span><strong>Tentativa de acesso bloqueada</strong> — a seta aponta para o componente que recusa; a caixa vermelha diz onde o bloqueio é decidido</span>
     </div>
     <div class="sample">
       <svg viewBox="0 0 48 12"><path d="M2 6 L44 6" stroke="#39c5cf" stroke-width="2.4" marker-end="url(#ar-c)"/></svg>
-      Fluxo de observabilidade (logs, métricas, coleta, consulta) — Diagrama 2
+      <span><strong>Fluxo de observabilidade</strong> — geração, coleta, armazenamento e consulta de logs/métricas (Diagrama 2)</span>
     </div>
     <div class="sample">
       <svg viewBox="0 0 48 12"><path d="M2 6 L44 6" stroke="#8b949e" stroke-width="1.8" stroke-dasharray="5,4" marker-end="url(#ar-n)"/></svg>
-      Resolução DNS / disparo de agendamento (não é tráfego de requisição)
+      <span><strong>Resolução DNS / disparo de agendamento</strong> — não é tráfego de requisição da aplicação</span>
     </div>
-    <h4>Controles de segurança aplicados por camada (Diagrama 1):</h4>
+
+    <h4>Comunicações permitidas e bloqueadas (porta, protocolo e onde o bloqueio acontece)</h4>
+    <table>
+      <tr><th style="width:36%">Origem → Destino</th><th style="width:19%">Porta / protocolo</th><th>Situação e onde é decidida</th></tr>
+      <tr><td>Navegador → <code>app.neshiku.com.br</code></td><td>TCP 443 / HTTPS</td><td><strong>Permitido</strong> — TLS termina no edge da Cloudflare (Universal SSL)</td></tr>
+      <tr><td>Navegador (JS do SPA) → <code>api.neshiku.com.br</code></td><td>TCP 443 / HTTPS</td><td><strong>Permitido</strong> — CORS do API Gateway libera GET/POST/PATCH/DELETE/OPTIONS</td></tr>
+      <tr><td>Cloudflare → CloudFront / API Gateway</td><td>TCP 443 / HTTPS</td><td><strong>Permitido</strong> — 2ª perna TLS com certificados ACM (modo Full: criptografado, sem validar o cert da origem)</td></tr>
+      <tr><td>CloudFront → buckets S3</td><td>HTTPS interno da AWS</td><td><strong>Permitido</strong> — requisição assinada pelo Origin Access Control (OAC)</td></tr>
+      <tr><td>Lambda → DynamoDB</td><td>HTTPS 443 · SigV4</td><td><strong>Permitido</strong> — IAM Role da função, restrita à tabela <code>todos-table</code></td></tr>
+      <tr><td>Internet → <code>vfb3b537c6.execute-api.us-east-2.amazonaws.com</code></td><td>TCP 443 / HTTPS</td><td><strong>Bloqueado (403)</strong> — decidido <em>no código do Lambda</em>, que exige o header <code>X-Origin-Verify</code> injetado apenas pela Cloudflare</td></tr>
+      <tr><td>Internet → buckets S3 direto</td><td>TCP 443 / HTTPS</td><td><strong>Bloqueado (403)</strong> — Block Public Access + bucket policy que só aceita o OAC da distribuição</td></tr>
+      <tr><td>Internet → DynamoDB direto</td><td>TCP 443 / HTTPS</td><td><strong>Bloqueado</strong> — no endpoint da própria AWS: sem credencial e assinatura SigV4 a chamada é recusada; não há porta/IP navegável</td></tr>
+      <tr><td>Internet → dashboard/logs/métricas</td><td>HTTPS (Console AWS)</td><td><strong>Bloqueado para anônimos</strong> — exige login IAM na conta 005042706931 com permissão de leitura no CloudWatch</td></tr>
+    </table>
+
+    <h4>Observações de fidelidade — o que está representado e o que não pôde ser comprovado</h4>
     <ul>
-      <li>Cloudflare: único ponto de entrada público — só ela conhece o "segredo" X-Origin-Verify da API e é quem tem os CNAMEs oficiais</li>
-      <li>API Gateway/Lambda: rejeita (403) qualquer requisição sem o header X-Origin-Verify correto — bloqueia acesso direto à URL da AWS</li>
-      <li>S3: buckets 100% privados, "Block Public Access" ativo — leitura só é permitida ao CloudFront via Origin Access Control (OAC)</li>
-      <li>DynamoDB: nenhum endpoint público/porta aberta — acesso só via API AWS assinada (SigV4) pela IAM Role do Lambda, restrita a esta tabela</li>
-      <li>Protocolo único de borda: HTTPS/443 (TLS) — HTTP sempre redirecionado; certificados emitidos via AWS ACM (validação DNS)</li>
-      <li>Portas: 443 (HTTPS, único caminho público) · Lambda→DynamoDB e CloudFront→S3 usam a API interna da AWS, sem porta/IP público exposto</li>
-      <li>Regra geral aplicada em todas as camadas: tudo bloqueado por padrão, exceto o estritamente necessário para o funcionamento</li>
-      <li><strong>DNS vs. tráfego:</strong> a resolução DNS dos domínios app.* e api.* (A/CNAME) acontece uma vez, no navegador, apontando para a borda da Cloudflare; o tráfego HTTPS que vem depois vai direto a esse edge, que decide para qual origem AWS encaminhar</li>
-      <li><strong>Origem real das chamadas à API:</strong> é o JavaScript do SPA React executando no navegador do usuário (funções <code>axios.get/post/patch/delete</code> em <code>App.js</code>) — não existe um serviço de front-end fazendo esse proxy; o front-end é só arquivos estáticos servidos pelo CloudFront</li>
+      <li><strong>Origem real das chamadas à API:</strong> é o JavaScript do SPA React executando no navegador (<code>axios.get/post/patch/delete</code> em <code>App.js</code>). Não existe um serviço de front-end intermediando — o front-end é apenas arquivo estático servido pelo CloudFront.</li>
+      <li><strong>DNS vs. tráfego:</strong> a resolução de <code>app.*</code> e <code>api.*</code> devolve um IP do edge da Cloudflare (registros CNAME "proxied"); o tráfego HTTPS posterior vai a esse edge, que decide para qual origem da AWS encaminhar. São coisas distintas e estão desenhadas com traços diferentes.</li>
+      <li><strong>Cloudflare:</strong> a única regra configurada pelo grupo é a Transform Rule que injeta o <code>X-Origin-Verify</code>. Não há WAF customizado, rate limiting nem firewall rules próprias, e o "Always Use HTTPS" <em>não</em> está ativado — por isso o diagrama não afirma redirecionamento automático de HTTP para HTTPS.</li>
+      <li><strong>Modo SSL/TLS "Full":</strong> a conexão Cloudflare→AWS é criptografada, mas nesse modo a Cloudflare não valida o certificado apresentado pela origem (validação estrita exigiria o modo "Full (strict)").</li>
+      <li><strong>Ponto exato do bloqueio do back-end:</strong> quem devolve o 403 é o código do Lambda (<code>index.js</code>), não uma regra do API Gateway — o API Gateway aceita a requisição e a encaminha; a checagem do header acontece dentro da função.</li>
+      <li><strong>Serviços gerenciados que reúnem etapas:</strong> API Gateway e DynamoDB geram <em>e</em> publicam suas métricas sozinhos — não há etapa de coleta separada, ao contrário do canário, que precisou de uma função nova porque não existe métrica nativa de "o domínio está no ar".</li>
+      <li><strong>Limites de visibilidade (administrado pelo provedor):</strong> a topologia interna de execução do Lambda (sem VPC), o particionamento/replicação interna do DynamoDB e a forma como a AWS calcula os percentis de latência não são observáveis pelo grupo — por isso não estão desenhados como componentes.</li>
+      <li><strong>Nada fictício:</strong> todos os recursos citados existem com os nomes/IDs mostrados (distribuição <code>E107CAQRHXIBU9</code>, API <code>vfb3b537c6</code>, funções <code>sam-app-TodoFunction-ZBJ9ee0dV1L9</code> e <code>sam-app-HealthCheckFunction-BlhQoK8Bfj8P</code>, buckets <code>todo-app-neshiku-frontend-1/2</code>, tabela <code>todos-table</code>, dashboard <code>todo-app-observabilidade</code>) e estão definidos em <code>backend/template.yaml</code> ou comprovados nos relatórios de teste.</li>
+      <li><strong>Agendamento do canário:</strong> o SAM (<code>Type: Schedule</code>) cria uma <em>regra do EventBridge</em> (<code>AWS::Events::Rule</code>) — não o serviço "EventBridge Scheduler" (que seria <code>ScheduleV2</code>/<code>AWS::Scheduler::Schedule</code>). O diagrama e o caminho de console abaixo refletem o que de fato existe na conta.</li>
     </ul>
-    <h4>Observabilidade (Diagrama 2) — resumo do que é gerenciado pelo provedor:</h4>
-    <ul>
-      <li>API Gateway e DynamoDB são serviços gerenciados que <em>já reúnem</em> geração e publicação da métrica — não existe uma etapa de "coleta" separada como no canário (que precisou de uma função nova porque não existe métrica nativa de "o domínio está no ar")</li>
-      <li>Os detalhes internos de como a AWS calcula/agrega essas métricas nativas (ex.: percentis de latência do API Gateway) não são visíveis ao grupo — são administrados pelo provedor; o grupo só consome o resultado publicado no CloudWatch</li>
-      <li>Os logs do TodoFunction e do HealthCheckFunction são a única fonte de dados que o grupo precisou instrumentar (ver Seção de Logs na documentação)</li>
-    </ul>
+
+    <h4>Onde encontrar cada configuração (caminho no console de cada ferramenta)</h4>
+    <p style="font-size:11px;line-height:1.7;color:#c9d1d9;margin:0 0 8px">
+      <strong>Atalho que serve para quase tudo na AWS:</strong> Console AWS → <em>CloudFormation</em> → região <strong>Ohio (us-east-2)</strong> → Stacks → <code>sam-app</code> → aba <strong>Resources</strong>. Essa tela lista todos os recursos criados pelo template (Lambdas, API, tabela, log groups, metric filters, regra do EventBridge, dashboard) com link direto para o console de cada um.<br>
+      <strong>Atenção à região no seletor do console:</strong> quase tudo está em <strong>us-east-2 (Ohio)</strong>; o bucket secundário está em <strong>us-west-2 (Oregon)</strong>; o certificado do CloudFront está em <strong>us-east-1 (N. Virginia)</strong> (exigência da AWS) e o CloudFront em si é <strong>global</strong>. Procurar na região errada faz o recurso simplesmente "não aparecer".
+    </p>
+
+    <table>
+      <tr><th style="width:26%">Peça da arquitetura</th><th style="width:44%">Onde acessar (caminho exato)</th><th>O que você vê / confere lá</th></tr>
+
+      <tr><td colspan="3" style="background:var(--fundo);color:#e3b341;font-weight:700">Domínio, DNS e proxy reverso</td></tr>
+      <tr>
+        <td>Domínio e delegação de DNS</td>
+        <td><a style="color:#79c0ff">registro.br</a> → Login → <strong>Meus domínios</strong> → <code>neshiku.com.br</code> → <strong>DNS / Servidores DNS</strong></td>
+        <td>Os nameservers apontando para <code>ashton.ns.cloudflare.com</code> e <code>itzel.ns.cloudflare.com</code> — é isso que entrega a zona inteira para a Cloudflare</td>
+      </tr>
+      <tr>
+        <td><strong>Proxy reverso</strong> (e registros DNS)</td>
+        <td><a style="color:#79c0ff">dash.cloudflare.com</a> → site <code>neshiku.com.br</code> → menu lateral <strong>DNS → Records</strong></td>
+        <td>Os CNAMEs <code>app</code> e <code>api</code> e seus destinos. O proxy reverso <em>é</em> a <strong>nuvem laranja "Proxied"</strong> ligada em cada registro — se ela ficar cinza ("DNS only"), o tráfego passa a ir direto para a AWS e o proxy deixa de existir</td>
+      </tr>
+      <tr>
+        <td><strong>Origin verify</strong> (header secreto)</td>
+        <td>Cloudflare → <code>neshiku.com.br</code> → <strong>Rules → Transform Rules</strong> → aba <strong>Modify Request Header</strong> → regra <code>Origin verify - API</code><br><span style="color:#8b949e">(em contas com o layout novo: <strong>Rules → Overview</strong>, e a regra aparece na lista com o tipo "Request Header Transform")</span></td>
+        <td>A regra que injeta <code>X-Origin-Verify</code> nas requisições para <code>api.neshiku.com.br</code>. O valor precisa ser idêntico ao parâmetro <code>OriginSecret</code> usado no <code>sam deploy</code> — se divergirem, a API responde 403 para todo mundo</td>
+      </tr>
+      <tr>
+        <td>Modo SSL/TLS e HTTPS da borda</td>
+        <td>Cloudflare → <code>neshiku.com.br</code> → <strong>SSL/TLS → Overview</strong> (modo de criptografia) e <strong>SSL/TLS → Edge Certificates</strong> (Always Use HTTPS, certificado Universal SSL)</td>
+        <td>Modo <strong>Full</strong> e o certificado do edge (TLS nº1). "Always Use HTTPS" está <strong>desligado</strong> nesta implementação</td>
+      </tr>
+
+      <tr><td colspan="3" style="background:var(--fundo);color:#56d364;font-weight:700">Front-end (CloudFront + S3)</td></tr>
+      <tr>
+        <td>Distribuição, domínio e certificado</td>
+        <td>Console AWS → <strong>CloudFront</strong> (global) → Distributions → <code>E107CAQRHXIBU9</code> → aba <strong>General → Settings</strong></td>
+        <td>Alternate domain name <code>app.neshiku.com.br</code> e o certificado ACM (us-east-1) que permite servir esse domínio</td>
+      </tr>
+      <tr>
+        <td><strong>Redundância</strong> (Origin Group / failover)</td>
+        <td>Mesma distribuição → aba <strong>Origins</strong> → seção <strong>Origin groups</strong> (e aba <strong>Behaviors</strong> → o comportamento padrão aponta para o grupo, não para um bucket)</td>
+        <td>As duas origens S3, qual é a primária, e os "failover criteria" 403/404/500/502/503/504</td>
+      </tr>
+      <tr>
+        <td>Origin Access Control (OAC)</td>
+        <td>Distribuição → <strong>Origins</strong> → editar uma origem → campo <strong>Origin access</strong>; a lista de OACs fica em CloudFront → menu lateral <strong>Origin access</strong></td>
+        <td>É o que autentica o CloudFront no S3 — sem isso os buckets privados devolveriam 403 também para o CloudFront</td>
+      </tr>
+      <tr>
+        <td>Buckets e bloqueio público</td>
+        <td>Console AWS → <strong>S3</strong> → <code>todo-app-neshiku-frontend-1</code> (us-east-2) e <code>todo-app-neshiku-frontend-2</code> (us-west-2) → aba <strong>Permissions</strong></td>
+        <td><strong>Block public access</strong> ligado e a <strong>Bucket policy</strong> que só autoriza o serviço do CloudFront com o ARN desta distribuição — são os dois controles que produzem o "BLOQUEADO" do diagrama</td>
+      </tr>
+
+      <tr><td colspan="3" style="background:var(--fundo);color:#79c0ff;font-weight:700">Back-end (API Gateway + Lambda) e banco</td></tr>
+      <tr>
+        <td>API, rotas e CORS</td>
+        <td>Console AWS (us-east-2) → <strong>API Gateway</strong> → APIs → a API com ID <code>vfb3b537c6</code> → <strong>Routes</strong> / <strong>CORS</strong></td>
+        <td>As 5 rotas explícitas e os métodos liberados no CORS</td>
+      </tr>
+      <tr>
+        <td>Métricas detalhadas por rota</td>
+        <td>Mesma API → <strong>Stages → $default</strong> → <strong>Logs and tracing</strong> / configurações de rota padrão</td>
+        <td>O "Detailed metrics" ligado — é ele que faz o CloudWatch publicar Latency/Count por <code>Resource</code>+<code>Method</code></td>
+      </tr>
+      <tr>
+        <td>Domínio da API (custom domain)</td>
+        <td>API Gateway → menu lateral <strong>Custom domain names</strong> → <code>api.neshiku.com.br</code> → abas <strong>Domain details</strong> e <strong>API mappings</strong></td>
+        <td>O certificado ACM (us-east-2) e o <strong>API Gateway domain name</strong> <code>d-rzvh9g1a2d.execute-api.us-east-2.amazonaws.com</code> — que é exatamente o destino do CNAME <code>api</code> na Cloudflare</td>
+      </tr>
+      <tr>
+        <td>Segredo do Origin verify (lado AWS)</td>
+        <td>Console AWS → <strong>Lambda</strong> → <code>sam-app-TodoFunction-ZBJ9ee0dV1L9</code> → <strong>Configuration → Environment variables</strong></td>
+        <td>As variáveis <code>ORIGIN_SECRET</code> (o outro lado do header da Cloudflare) e <code>TABLE_NAME</code>. A checagem em si está na aba <strong>Code</strong>, em <code>index.js</code></td>
+      </tr>
+      <tr>
+        <td>Permissão do Lambda no banco</td>
+        <td>Mesma função → <strong>Configuration → Permissions</strong> → clicar no <strong>Execution role</strong> (abre o IAM)</td>
+        <td>A policy gerada pelo <code>DynamoDBCrudPolicy</code>, restrita ao ARN da tabela <code>todos-table</code> — é o "controle de acesso" do banco</td>
+      </tr>
+      <tr>
+        <td>Banco de dados</td>
+        <td>Console AWS (us-east-2) → <strong>DynamoDB</strong> → Tables → <code>todos-table</code></td>
+        <td>Chave, modo PAY_PER_REQUEST e os itens. Repare que <strong>não existe</strong> aba de "acesso público" para desligar: o DynamoDB nunca expõe endpoint navegável — o controle é só IAM</td>
+      </tr>
+      <tr>
+        <td>Certificados (ACM)</td>
+        <td>Console AWS → <strong>Certificate Manager</strong> → trocar a região: <strong>us-east-1</strong> (o do CloudFront) e <strong>us-east-2</strong> (o do API Gateway)</td>
+        <td>Os dois certificados "Issued", validados por DNS</td>
+      </tr>
+
+      <tr><td colspan="3" style="background:var(--fundo);color:#7ee3e8;font-weight:700">Observabilidade</td></tr>
+      <tr>
+        <td>Dashboard e painéis</td>
+        <td>Console AWS (us-east-2) → <strong>CloudWatch</strong> → <strong>Dashboards</strong> → <code>todo-app-observabilidade</code><br><span style="color:#8b949e">(o <code>sam deploy</code> imprime a URL direta no output <code>DashboardUrl</code>)</span></td>
+        <td>Os 4 painéis. Para ver a definição de um widget: menu "⋮" do widget → <strong>View/edit source</strong> — o JSON ali é o mesmo que está em <code>backend/template.yaml</code></td>
+      </tr>
+      <tr>
+        <td>Logs e retenção</td>
+        <td>CloudWatch → <strong>Log groups</strong> → <code>/aws/lambda/sam-app-TodoFunction-…</code> e <code>/aws/lambda/sam-app-HealthCheckFunction-…</code></td>
+        <td>As linhas JSON estruturadas e a coluna <strong>Retention</strong> em 30 dias</td>
+      </tr>
+      <tr>
+        <td>Metric Filters (canário → métrica)</td>
+        <td>CloudWatch → Log groups → o log group do <strong>HealthCheckFunction</strong> → aba <strong>Metric filters</strong></td>
+        <td>Os 3 filtros que transformam as linhas do canário em <code>AvailabilitySuccess/Failure/Latency</code></td>
+      </tr>
+      <tr>
+        <td>Métricas brutas</td>
+        <td>CloudWatch → <strong>All metrics</strong> → namespaces <code>TodoApp/Availability</code> (custom), <code>AWS/ApiGateway</code> e <code>AWS/DynamoDB</code></td>
+        <td>As séries que alimentam os widgets, com as dimensões reais de cada uma</td>
+      </tr>
+      <tr>
+        <td>Rodar as consultas de log à mão</td>
+        <td>CloudWatch → <strong>Logs Insights</strong> → selecionar o log group → colar a query</td>
+        <td>É o mesmo motor usado pelos widgets tipo "log"; as queries estão em <code>backend/template.yaml</code> e nos documentos dos painéis</td>
+      </tr>
+      <tr>
+        <td>Agendamento do canário</td>
+        <td>Console AWS (us-east-2) → <strong>EventBridge</strong> → <strong>Rules</strong> → <code>todo-app-healthcheck-schedule</code></td>
+        <td>O <code>rate(5 minutes)</code> e o alvo (a função HealthCheck). Desabilitar essa regra é o que produz o "buraco sem dados" descrito no painel de Disponibilidade</td>
+      </tr>
+      <tr>
+        <td>Quem pode ver a observabilidade</td>
+        <td>Console AWS → <strong>IAM</strong> → Users / Roles → conferir as permissões de CloudWatch/Logs da identidade usada</td>
+        <td>É o único mecanismo de controle de acesso aos painéis — não há link público a revogar</td>
+      </tr>
+    </table>
   </div>
 
-  <p class="footer">Arquivo-fonte editável: este próprio HTML (SVG inline, sem dependências externas). Domínio: neshiku.com.br · Dashboard: todo-app-observabilidade (CloudWatch, região us-east-2).</p>
+  <p class="footer">Arquivo-fonte editável: este próprio HTML (SVG inline, sem dependências externas). As imagens PNG são geradas por este arquivo, na hora, pelos botões no topo — se você editar o diagrama, o PNG exportado já sai atualizado. Domínio: neshiku.com.br · Dashboard: todo-app-observabilidade (CloudWatch, us-east-2).</p>
 
 </div>
+
+<script>
+/* ---------------------------------------------------------------------------
+   Exportacao de PNG gerada na hora, a partir desta propria pagina.
+
+   O exportador NAO tem nada "chumbado": ele le da pagina, no momento do
+   clique, o CSS completo, a fonte, a cor do texto, a cor de fundo, a largura
+   e as margens. Por isso qualquer alteracao que voce fizer no arquivo (texto,
+   cor, tamanho, caixas novas, linhas novas na tabela, ate um Diagrama 3)
+   aparece automaticamente na imagem baixada.
+
+   IMPORTANTE: a captura le o que esta RENDERIZADO NA ABA. Depois de salvar o
+   arquivo no editor, recarregue a pagina (Ctrl+Shift+R) antes de baixar.
+   O horario em que esta versao foi carregada aparece ao lado dos botoes.
+
+   Unica limitacao: arquivos externos (uma <img> apontando para outro arquivo,
+   ou uma folha de estilo <link> que o navegador bloqueie a leitura) nao entram
+   na imagem. Tudo que esta dentro deste HTML entra.
+--------------------------------------------------------------------------- */
+(function () {
+  var ESCALA = 2;   /* 2x = nitidez boa para zoom e impressao */
+
+  /* ---- tudo que o exportador precisa saber vem da pagina, agora ---- */
+  function estiloDaPagina() {
+    var cs = getComputedStyle(document.body);
+    var raiz = getComputedStyle(document.documentElement);
+    var fundo = (raiz.getPropertyValue('--fundo') || '').trim()
+             || (cs.backgroundColor && cs.backgroundColor !== 'rgba(0, 0, 0, 0)' ? cs.backgroundColor : '')
+             || '#0d1117';
+    var alvo = document.querySelector('.page') || document.body;
+    var maxW = parseFloat(getComputedStyle(alvo).maxWidth);
+    return {
+      fundo: fundo,
+      fonte: cs.fontFamily,
+      cor: cs.color,
+      largura: isFinite(maxW) ? maxW : Math.ceil(alvo.getBoundingClientRect().width),
+      padV: parseFloat(cs.paddingTop) || 0,
+      padH: parseFloat(cs.paddingLeft) || 0,
+      /* propriedades herdadas do body que o wrapper precisa reproduzir */
+      herdadas: ['font-family', 'font-size', 'font-weight', 'font-style', 'line-height',
+                 'letter-spacing', 'word-spacing', 'color', 'text-align', 'text-transform',
+                 'direction'].map(function (k) { return k + ':' + cs.getPropertyValue(k); }).join(';')
+    };
+  }
+
+  /* CSS completo da pagina: le as folhas de verdade (cobre <style> e <link>),
+     com fallback para o texto bruto das tags <style> se o navegador bloquear */
+  function cssDaPagina() {
+    var css = '';
+    for (var i = 0; i < document.styleSheets.length; i++) {
+      var folha = document.styleSheets[i];
+      try {
+        var regras = folha.cssRules;
+        for (var j = 0; j < regras.length; j++) css += regras[j].cssText + '\n';
+      } catch (e) {
+        if (folha.ownerNode && folha.ownerNode.textContent) css += folha.ownerNode.textContent + '\n';
+      }
+    }
+    if (!css) {
+      Array.prototype.forEach.call(document.querySelectorAll('style'), function (t) { css += t.textContent + '\n'; });
+    }
+    return css;
+  }
+
+  function status(msg, tipo) {
+    var el = document.getElementById('expStatus');
+    el.textContent = msg;
+    el.className = 'status' + (tipo ? ' ' + tipo : '');
+  }
+
+  function diagramas() {
+    return Array.prototype.slice.call(document.querySelectorAll('.svgcard > svg'));
+  }
+
+  function rasterizar(svgString) {
+    return new Promise(function (resolve, reject) {
+      var img = new Image();
+      img.onload = function () { resolve(img); };
+      img.onerror = function () { reject(new Error('o navegador nao conseguiu rasterizar o conteudo')); };
+      img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgString);
+    });
+  }
+
+  function baixar(canvas, nome) {
+    return new Promise(function (resolve, reject) {
+      canvas.toBlob(function (blob) {
+        if (!blob) { reject(new Error('o navegador nao gerou o PNG')); return; }
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url; a.download = nome;
+        document.body.appendChild(a); a.click();
+        setTimeout(function () { URL.revokeObjectURL(url); a.remove(); }, 2000);
+        resolve();
+      }, 'image/png');
+    });
+  }
+
+  function paraCanvas(img, largura, altura, fundo) {
+    var canvas = document.createElement('canvas');
+    canvas.width = largura; canvas.height = altura;
+    var ctx = canvas.getContext('2d');
+    ctx.fillStyle = fundo;
+    ctx.fillRect(0, 0, largura, altura);
+    ctx.drawImage(img, 0, 0, largura, altura);
+    return canvas;
+  }
+
+  function nomeDeArquivo(svg, indice) {
+    /* usa o titulo (h2) que aparece acima do diagrama, para o arquivo
+       acompanhar o nome que voce der a ele */
+    var card = svg.parentNode, titulo = null, ant = card.previousElementSibling;
+    while (ant) { if (/^H[1-6]$/.test(ant.tagName)) { titulo = ant.textContent; break; } ant = ant.previousElementSibling; }
+    var base = titulo ? titulo.toLowerCase()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60)
+      : 'diagrama-' + (indice + 1);
+    return base + '.png';
+  }
+
+  /* ---- exporta um diagrama isolado ---- */
+  window.baixarDiagrama = function (indice) {
+    var svg = diagramas()[indice];
+    if (!svg) { status('diagrama nao encontrado', 'err'); return; }
+    var e = estiloDaPagina();
+    var vb = svg.viewBox.baseVal;
+    var largura = vb.width * ESCALA, altura = vb.height * ESCALA;
+
+    var clone = svg.cloneNode(true);
+    clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+    clone.setAttribute('viewBox', '0 0 ' + vb.width + ' ' + vb.height);
+
+    /* leva junto TODO o CSS da pagina, para que qualquer regra sua que afete o
+       desenho valha tambem na imagem; as duas ultimas regras garantem o
+       tamanho da exportacao e a variavel de fundo dentro do SVG isolado */
+    var estilo = document.createElementNS('http://www.w3.org/2000/svg', 'style');
+    estilo.textContent = cssDaPagina()
+      + 'text{font-family:' + e.fonte + '}'
+      + 'svg{--fundo:' + e.fundo + ';width:' + largura + 'px !important;height:' + altura + 'px !important}';
+    clone.insertBefore(estilo, clone.firstChild);
+
+    status('gerando PNG...');
+    rasterizar(new XMLSerializer().serializeToString(clone)).then(function (img) {
+      var nome = nomeDeArquivo(svg, indice);
+      return baixar(paraCanvas(img, largura, altura, e.fundo), nome).then(function () {
+        status('PNG gerado: ' + nome, 'ok');
+      });
+    }).catch(function (err) { status('falhou: ' + err.message, 'err'); });
+  };
+
+  /* ---- exporta a pagina inteira: diagramas + legenda + tabelas ---- */
+  window.baixarTudo = function () {
+    status('gerando PNG da pagina inteira...');
+    try {
+      var e = estiloDaPagina();
+      var clone = (document.querySelector('.page') || document.body).cloneNode(true);
+      Array.prototype.forEach.call(clone.querySelectorAll('.noprint'), function (n) { n.remove(); });
+
+      /* mede a altura real do conteudo na largura de exportacao */
+      var medidor = document.createElement('div');
+      medidor.setAttribute('style', 'position:fixed;left:-99999px;top:0;width:' + e.largura + 'px;visibility:hidden;' + e.herdadas);
+      medidor.appendChild(clone);
+      document.body.appendChild(medidor);
+      var altura = Math.ceil(clone.getBoundingClientRect().height);
+      medidor.parentNode.removeChild(medidor);
+
+      var wrapper = document.createElement('div');
+      wrapper.setAttribute('xmlns', 'http://www.w3.org/1999/xhtml');
+      wrapper.setAttribute('style', 'width:' + e.largura + 'px;' + e.herdadas + ';--fundo:' + e.fundo + ';background:' + e.fundo);
+      var estilo = document.createElement('style');
+      estilo.textContent = cssDaPagina();
+      wrapper.appendChild(estilo);
+      wrapper.appendChild(clone);
+
+      var conteudo = new XMLSerializer().serializeToString(wrapper);
+      var largLog = e.largura + e.padH * 2;
+      var altLog = altura + e.padV * 2;
+      var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="' + (largLog * ESCALA) + '" height="' + (altLog * ESCALA) + '"'
+              + ' viewBox="0 0 ' + largLog + ' ' + altLog + '">'
+              + '<rect width="100%" height="100%" fill="' + e.fundo + '"/>'
+              + '<foreignObject x="' + e.padH + '" y="' + e.padV + '" width="' + e.largura + '" height="' + altura + '">'
+              + conteudo + '</foreignObject></svg>';
+
+      rasterizar(svg).then(function (img) {
+        return baixar(paraCanvas(img, largLog * ESCALA, altLog * ESCALA, e.fundo), 'diagrama-arquitetura.png').then(function () {
+          status('PNG gerado: diagrama-arquitetura.png (pagina inteira)', 'ok');
+        });
+      }).catch(function (err) {
+        status('falhou: ' + err.message + ' — use "Salvar em PDF"', 'err');
+      });
+    } catch (err) {
+      status('falhou: ' + err.message, 'err');
+    }
+  };
+
+  /* ---- um botao por diagrama existente (inclusive os que voce adicionar) ---- */
+  (function montarBotoes() {
+    var alvo = document.getElementById('btnsDiagramas');
+    if (!alvo) return;
+    diagramas().forEach(function (svg, i) {
+      var b = document.createElement('button');
+      b.textContent = '⬇ Só o Diagrama ' + (i + 1);
+      b.onclick = function () { baixarDiagrama(i); };
+      alvo.appendChild(b);
+    });
+  })();
+})();
+</script>
 </body>
 </html>
