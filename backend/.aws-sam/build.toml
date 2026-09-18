@@ -9,4 +9,13 @@ manifest_hash = ""
 packagetype = "Zip"
 functions = ["TodoFunction"]
 
+[function_build_definitions.478ca3d3-68cd-42c4-96f3-47e5ac2b932b]
+codeuri = "C:\\Users\\NEKO\\Documents\\projetos\\aula-uniamerica-infraestrutura-cloud\\backend\\healthcheck"
+runtime = "nodejs18.x"
+architecture = "x86_64"
+handler = "index.handler"
+manifest_hash = ""
+packagetype = "Zip"
+functions = ["HealthCheckFunction"]
+
 [layer_build_definitions]

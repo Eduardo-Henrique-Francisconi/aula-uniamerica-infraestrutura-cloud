@@ -1,0 +1,7 @@
+{
+  "name": "todo-app-healthcheck",
+  "version": "1.0.0",
+  "description": "Canário de disponibilidade (checagem sintética) do front-end e da API do Todo App. Sem dependências externas — usa apenas o módulo https nativo do Node.js.",
+  "main": "index.js",
+  "license": "UNLICENSED"
+}

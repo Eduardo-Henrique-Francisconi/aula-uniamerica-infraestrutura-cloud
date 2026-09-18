@@ -3,12 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Arquitetura Serverless — Todo App (neshiku.com.br)</title>
+<title>Arquitetura Serverless + Observabilidade — Todo App (neshiku.com.br)</title>
 <style>
   *{box-sizing:border-box}
   body{margin:0;padding:24px 16px;background:#0d1117;font-family:system-ui,-apple-system,Arial,Helvetica,sans-serif;color:#c9d1d9}
   .page{max-width:1400px;margin:0 auto}
   h1{font-size:22px;margin:0 0 4px;color:#e6edf3;font-weight:700;text-align:center}
+  h2{font-size:16px;margin:28px 0 4px;color:#e6edf3;font-weight:700;text-align:center}
   .sub{font-size:12.5px;color:#8b949e;text-align:center;margin:0 0 20px}
   .svgcard{background:#0d1117;border:1px solid #21262d;border-radius:12px;padding:14px;margin-bottom:20px}
   svg{width:100%;display:block}
@@ -21,16 +22,18 @@
   .card ul{margin:0;padding-left:18px}
   .card li{margin-bottom:6px;font-size:11px;line-height:1.7;color:#c9d1d9}
   .footer{text-align:center;font-size:10px;color:#6e7681;margin-top:14px}
+  .note{font-size:10.5px;color:#56d9d3;font-weight:600}
 </style>
 </head>
 <body>
 <div class="page">
 
-  <h1>Arquitetura Serverless — Todo App (neshiku.com.br)</h1>
-  <p class="sub">AWS (Lambda + API Gateway + DynamoDB + S3 + CloudFront) + Cloudflare (DNS / Proxy Reverso / HTTPS)</p>
+  <h1>Arquitetura Serverless + Observabilidade — Todo App (neshiku.com.br)</h1>
+  <p class="sub">AWS (Lambda + API Gateway + DynamoDB + S3 + CloudFront + CloudWatch) + Cloudflare (DNS / Proxy Reverso / HTTPS)</p>
 
+  <h2>Diagrama 1 — Aplicação (Entrega 1, revisado)</h2>
   <div class="svgcard">
-  <svg viewBox="0 0 1400 600" role="img">
+  <svg viewBox="0 0 1400 610" role="img">
   <title>Diagrama da arquitetura serverless do Todo App</title>
   <desc>Usuário acessa via Cloudflare, que roteia para CloudFront (front-end, redundante em dois buckets S3) e API Gateway (back-end, Lambda, DynamoDB). Acessos diretos à AWS, ao banco e aos buckets são bloqueados.</desc>
   <defs>
@@ -48,7 +51,7 @@
     </marker>
   </defs>
 
-  <rect width="1400" height="600" fill="#0d1117"/>
+  <rect width="1400" height="610" fill="#0d1117"/>
 
   <!-- ===== connectors (drawn first, boxes/labels sit on top) ===== -->
   <path d="M240 102 L592 102" fill="none" stroke="#8b949e" stroke-width="1.8" stroke-dasharray="5,4" marker-end="url(#ar-n)"/>
@@ -81,6 +84,10 @@
 
     <rect x="778" y="253" width="208" height="18" rx="4" fill="#0d1117"/>
     <text x="882" y="266" text-anchor="middle" fill="#56d364">api.neshiku.com.br · HTTPS 443</text>
+  </g>
+  <g font-size="9">
+    <rect x="770" y="277" width="226" height="14" rx="3" fill="#0d1117"/>
+    <text x="883" y="287" text-anchor="middle" fill="#8b949e">origem real: JS do navegador (SPA React) — não há front-end server</text>
   </g>
   <g font-size="9.5">
     <rect x="122" y="365" width="88" height="16" rx="4" fill="#0d1117"/>
@@ -118,7 +125,7 @@
   <!-- ===== API Gateway ===== -->
   <rect x="840" y="300" width="440" height="58" rx="9" fill="#0d1f3d" stroke="#1f6feb" stroke-width="1.6"/>
   <text x="1060" y="322" text-anchor="middle" font-size="14" font-weight="700" fill="#79c0ff">Amazon API Gateway (HTTP API)</text>
-  <text x="1060" y="339" text-anchor="middle" font-size="10.5" fill="#c9d1d9">Custom domain · Cert. ACM (us-east-2) · CORS restrito</text>
+  <text x="1060" y="339" text-anchor="middle" font-size="10.5" fill="#c9d1d9">Custom domain · Cert. ACM (us-east-2) · rotas explícitas · métricas detalhadas por rota</text>
 
   <!-- ===== Badge 1: API GW blocked ===== -->
   <rect x="580" y="300" width="250" height="58" rx="9" fill="#3c1618" stroke="#f85149" stroke-width="1.6"/>
@@ -142,6 +149,7 @@
   <text x="1060" y="412" text-anchor="middle" font-size="13.5" font-weight="700" fill="#79c0ff">AWS Lambda — TodoFunction</text>
   <text x="1060" y="428" text-anchor="middle" font-size="10" fill="#c9d1d9">Node.js 18.x · valida header X-Origin-Verify (403 se ausente/errado)</text>
   <text x="1060" y="443" text-anchor="middle" font-size="10" fill="#c9d1d9">IAM Role restrita (DynamoDBCrudPolicy só na tabela todos-table)</text>
+  <text x="1060" y="460" text-anchor="middle" font-size="9.5" fill="#56d9d3">gera logs estruturados → ver Diagrama 2 (Observabilidade)</text>
 
   <!-- ===== DynamoDB ===== -->
   <rect x="840" y="508" width="440" height="65" rx="9" fill="#251433" stroke="#a371f7" stroke-width="1.6"/>
@@ -161,21 +169,142 @@
   <text x="340" y="532" text-anchor="middle" font-size="9.5" fill="#e6edf3">Internet → buckets S3 direto (sem passar pelo CloudFront/OAC)</text>
   <text x="340" y="545" text-anchor="middle" font-size="9" fill="#c9d1d9">"Block Public Access" ativo nos dois buckets</text>
 
-  <text x="700" y="590" text-anchor="middle" font-size="10" fill="#6e7681">Domínio: neshiku.com.br · Front-end: app.neshiku.com.br · Back-end/API: api.neshiku.com.br</text>
+  <text x="700" y="595" text-anchor="middle" font-size="10" fill="#6e7681">Domínio: neshiku.com.br · Front-end: app.neshiku.com.br · Back-end/API: api.neshiku.com.br</text>
+  </svg>
+  </div>
+
+  <h2>Diagrama 2 — Observabilidade (Entrega 2)</h2>
+  <p class="sub">Componente que gera o dado → Coleta/encaminhamento → Armazenamento/consulta → Painel</p>
+  <div class="svgcard">
+  <svg viewBox="0 0 1400 660" role="img">
+  <title>Fluxo de observabilidade do Todo App</title>
+  <desc>Quatro fontes de dados (canário de disponibilidade, backend Lambda, API Gateway e DynamoDB) alimentam o CloudWatch, que armazena logs e métricas e apresenta 4 painéis num dashboard, acessível só por usuários IAM da conta autenticados no Console.</desc>
+  <defs>
+    <marker id="ar-c" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7.5" markerHeight="7.5" orient="auto-start-reverse">
+      <path d="M2 1.5L8 5L2 8.5" fill="none" stroke="#39c5cf" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+    <marker id="ar-n2" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7.5" markerHeight="7.5" orient="auto-start-reverse">
+      <path d="M2 1.5L8 5L2 8.5" fill="none" stroke="#8b949e" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+  </defs>
+  <rect width="1400" height="660" fill="#0d1117"/>
+
+  <!-- column x-starts: 40 / 370 / 700 / 1030, width 300 each -->
+
+  <!-- ===== Lane 1: canário de disponibilidade ===== -->
+  <rect x="40" y="34" width="300" height="42" rx="8" fill="#1c2333" stroke="#8b949e" stroke-width="1.4"/>
+  <text x="190" y="50" text-anchor="middle" font-size="11" font-weight="700" fill="#c9d1d9">Amazon EventBridge Scheduler</text>
+  <text x="190" y="65" text-anchor="middle" font-size="9.5" fill="#8b949e">rate(5 minutes) — dispara a checagem</text>
+  <path d="M190 76 L190 108" fill="none" stroke="#8b949e" stroke-width="2" marker-end="url(#ar-n2)"/>
+
+  <rect x="40" y="108" width="300" height="72" rx="9" fill="#0d1f3d" stroke="#1f6feb" stroke-width="1.6"/>
+  <text x="190" y="128" text-anchor="middle" font-size="12" font-weight="700" fill="#79c0ff">Lambda — HealthCheckFunction</text>
+  <text x="190" y="144" text-anchor="middle" font-size="9.5" fill="#c9d1d9">canário: GET app.neshiku.com.br</text>
+  <text x="190" y="158" text-anchor="middle" font-size="9.5" fill="#c9d1d9">e api.neshiku.com.br/todos</text>
+  <text x="190" y="172" text-anchor="middle" font-size="9" fill="#8b949e">(mesmo caminho de um usuário real)</text>
+  <path d="M190 180 L190 208" fill="none" stroke="#39c5cf" stroke-width="2" marker-end="url(#ar-c)"/>
+
+  <rect x="40" y="208" width="300" height="58" rx="9" fill="#161b22" stroke="#39c5cf" stroke-width="1.6"/>
+  <text x="190" y="230" text-anchor="middle" font-size="11.5" font-weight="700" fill="#7ee3e8">CloudWatch Logs</text>
+  <text x="190" y="246" text-anchor="middle" font-size="9.5" fill="#c9d1d9">log group HealthCheckFunction</text>
+  <text x="190" y="259" text-anchor="middle" font-size="9" fill="#8b949e">1 linha JSON por checagem · retém 30 dias</text>
+  <path d="M190 266 L190 296" fill="none" stroke="#39c5cf" stroke-width="2" marker-end="url(#ar-c)"/>
+  <text x="196" y="284" font-size="8.5" fill="#7ee3e8">Metric Filter</text>
+
+  <rect x="40" y="296" width="300" height="68" rx="9" fill="#161b22" stroke="#39c5cf" stroke-width="1.6"/>
+  <text x="190" y="316" text-anchor="middle" font-size="11.5" font-weight="700" fill="#7ee3e8">CloudWatch Metrics</text>
+  <text x="190" y="332" text-anchor="middle" font-size="9.5" fill="#c9d1d9">namespace TodoApp/Availability</text>
+  <text x="190" y="346" text-anchor="middle" font-size="9" fill="#8b949e">dimensão: Target (frontend | api)</text>
+  <text x="190" y="358" text-anchor="middle" font-size="8.5" fill="#56d9d3">→ Painel 1 · Disponibilidade</text>
+
+  <!-- ===== Lane 2: backend TodoFunction (logs) ===== -->
+  <rect x="370" y="108" width="300" height="72" rx="9" fill="#0d1f3d" stroke="#1f6feb" stroke-width="1.6"/>
+  <text x="520" y="128" text-anchor="middle" font-size="12" font-weight="700" fill="#79c0ff">Lambda — TodoFunction</text>
+  <text x="520" y="144" text-anchor="middle" font-size="9.5" fill="#c9d1d9">mesma função do Diagrama 1</text>
+  <text x="520" y="158" text-anchor="middle" font-size="9.5" fill="#c9d1d9">loga cada requisição HTTP e cada</text>
+  <text x="520" y="172" text-anchor="middle" font-size="9.5" fill="#c9d1d9">chamada ao DynamoDB (JSON)</text>
+  <path d="M520 180 L520 208" fill="none" stroke="#39c5cf" stroke-width="2" marker-end="url(#ar-c)"/>
+
+  <rect x="370" y="208" width="300" height="58" rx="9" fill="#161b22" stroke="#39c5cf" stroke-width="1.6"/>
+  <text x="520" y="230" text-anchor="middle" font-size="11.5" font-weight="700" fill="#7ee3e8">CloudWatch Logs</text>
+  <text x="520" y="246" text-anchor="middle" font-size="9.5" fill="#c9d1d9">log group TodoFunction</text>
+  <text x="520" y="259" text-anchor="middle" font-size="9" fill="#8b949e">stdout do Lambda, automático · retém 30 dias</text>
+  <path d="M520 266 L520 296" fill="none" stroke="#39c5cf" stroke-width="2" marker-end="url(#ar-c)"/>
+  <text x="526" y="284" font-size="8.5" fill="#7ee3e8">consulta direta</text>
+
+  <rect x="370" y="296" width="300" height="68" rx="9" fill="#161b22" stroke="#39c5cf" stroke-width="1.6"/>
+  <text x="520" y="316" text-anchor="middle" font-size="11.5" font-weight="700" fill="#7ee3e8">CloudWatch Logs Insights</text>
+  <text x="520" y="332" text-anchor="middle" font-size="9.5" fill="#c9d1d9">consulta ao log (sem métrica derivada)</text>
+  <text x="520" y="346" text-anchor="middle" font-size="9" fill="#8b949e">agrupa por rota / operação / status</text>
+  <text x="520" y="358" text-anchor="middle" font-size="8.5" fill="#56d9d3">→ Painel 3 (causas) · Painel 4 (falhas do banco)</text>
+
+  <!-- ===== Lane 3: API Gateway (métrica nativa) ===== -->
+  <rect x="700" y="108" width="300" height="72" rx="9" fill="#0d1f3d" stroke="#1f6feb" stroke-width="1.6"/>
+  <text x="850" y="128" text-anchor="middle" font-size="12" font-weight="700" fill="#79c0ff">Amazon API Gateway (HTTP API)</text>
+  <text x="850" y="144" text-anchor="middle" font-size="9.5" fill="#c9d1d9">serviço gerenciado: já gera E publica</text>
+  <text x="850" y="158" text-anchor="middle" font-size="9.5" fill="#c9d1d9">a métrica sozinho (sem etapa de</text>
+  <text x="850" y="172" text-anchor="middle" font-size="9.5" fill="#c9d1d9">coleta separada)</text>
+  <path d="M850 180 L850 296" fill="none" stroke="#39c5cf" stroke-width="2" marker-end="url(#ar-c)"/>
+  <text x="856" y="240" font-size="8.5" fill="#7ee3e8">publicação nativa</text>
+
+  <rect x="700" y="296" width="300" height="68" rx="9" fill="#161b22" stroke="#39c5cf" stroke-width="1.6"/>
+  <text x="850" y="316" text-anchor="middle" font-size="11.5" font-weight="700" fill="#7ee3e8">CloudWatch Metrics</text>
+  <text x="850" y="332" text-anchor="middle" font-size="9.5" fill="#c9d1d9">namespace AWS/ApiGateway</text>
+  <text x="850" y="346" text-anchor="middle" font-size="9" fill="#8b949e">dimensões: Route, Stage (DetailedMetrics)</text>
+  <text x="850" y="358" text-anchor="middle" font-size="8.5" fill="#56d9d3">→ Painéis 2, 3 (taxa) e 4</text>
+
+  <!-- ===== Lane 4: DynamoDB (métrica nativa) ===== -->
+  <rect x="1030" y="108" width="300" height="72" rx="9" fill="#251433" stroke="#a371f7" stroke-width="1.6"/>
+  <text x="1180" y="128" text-anchor="middle" font-size="12" font-weight="700" fill="#d2a8ff">Amazon DynamoDB</text>
+  <text x="1180" y="144" text-anchor="middle" font-size="9.5" fill="#c9d1d9">serviço gerenciado: já gera E publica</text>
+  <text x="1180" y="158" text-anchor="middle" font-size="9.5" fill="#c9d1d9">a métrica sozinho (sem etapa de</text>
+  <text x="1180" y="172" text-anchor="middle" font-size="9.5" fill="#c9d1d9">coleta separada)</text>
+  <path d="M1180 180 L1180 296" fill="none" stroke="#39c5cf" stroke-width="2" marker-end="url(#ar-c)"/>
+  <text x="1186" y="240" font-size="8.5" fill="#7ee3e8">publicação nativa</text>
+
+  <rect x="1030" y="296" width="300" height="68" rx="9" fill="#161b22" stroke="#39c5cf" stroke-width="1.6"/>
+  <text x="1180" y="316" text-anchor="middle" font-size="11.5" font-weight="700" fill="#7ee3e8">CloudWatch Metrics</text>
+  <text x="1180" y="332" text-anchor="middle" font-size="9.5" fill="#c9d1d9">namespace AWS/DynamoDB</text>
+  <text x="1180" y="346" text-anchor="middle" font-size="9" fill="#8b949e">dimensões: TableName, Operation</text>
+  <text x="1180" y="358" text-anchor="middle" font-size="8.5" fill="#56d9d3">→ Painel 4 · Banco de Dados</text>
+
+  <!-- ===== converge to dashboard ===== -->
+  <path d="M190 364 L190 392 L700 392 L700 414" fill="none" stroke="#39c5cf" stroke-width="2" marker-end="url(#ar-c)"/>
+  <path d="M520 364 L520 392 L700 392" fill="none" stroke="#39c5cf" stroke-width="2"/>
+  <path d="M850 364 L850 392" fill="none" stroke="#39c5cf" stroke-width="2"/>
+  <path d="M1180 364 L1180 392 L900 392" fill="none" stroke="#39c5cf" stroke-width="2"/>
+
+  <rect x="40" y="414" width="1290" height="118" rx="11" fill="#0f2a2c" stroke="#39c5cf" stroke-width="2"/>
+  <text x="685" y="438" text-anchor="middle" font-size="14.5" font-weight="700" fill="#7ee3e8">Amazon CloudWatch Dashboard — "todo-app-observabilidade"</text>
+  <text x="685" y="456" text-anchor="middle" font-size="10.5" fill="#c9d1d9">1 Disponibilidade · 2 Desempenho · 3 Erros (taxa + causas) · 4 Banco de Dados</text>
+  <text x="685" y="475" text-anchor="middle" font-size="10" fill="#8b949e">Widgets tipo "metric" (séries do CloudWatch Metrics) e "log" (consultas do CloudWatch Logs Insights) na mesma tela</text>
+  <rect x="240" y="486" width="890" height="34" rx="7" fill="#1c1108" stroke="#d29922" stroke-width="1.4"/>
+  <text x="685" y="500" text-anchor="middle" font-size="10" font-weight="700" fill="#e3b341">Quem pode consultar:</text>
+  <text x="685" y="514" text-anchor="middle" font-size="9.5" fill="#c9d1d9">só usuários/roles IAM da conta AWS com permissão de leitura no CloudWatch, autenticados no Console — sem URL pública</text>
+
+  <text x="700" y="552" text-anchor="middle" font-size="10" fill="#6e7681">Retenção dos logs: 30 dias (RetentionInDays) · Namespaces custom: TodoApp/Availability · Namespaces nativos: AWS/ApiGateway, AWS/DynamoDB</text>
   </svg>
   </div>
 
   <div class="card">
-    <h3>Legenda</h3>
+    <h3>Legenda (válida para os dois diagramas)</h3>
     <div class="sample">
       <svg viewBox="0 0 48 12"><path d="M2 6 L44 6" stroke="#3fb950" stroke-width="2.4" marker-end="url(#ar-g)"/></svg>
-      Fluxo permitido (HTTPS/443, autenticado quando aplicável)
+      Fluxo da aplicação permitido (HTTPS/443, autenticado quando aplicável)
     </div>
     <div class="sample">
       <svg viewBox="0 0 48 12"><path d="M2 6 L44 6" stroke="#f85149" stroke-width="2.2" stroke-dasharray="4,3" marker-end="url(#ar-r)"/></svg>
       Fluxo bloqueado por firewall/controle de acesso
     </div>
-    <h4>Controles de segurança aplicados por camada:</h4>
+    <div class="sample">
+      <svg viewBox="0 0 48 12"><path d="M2 6 L44 6" stroke="#39c5cf" stroke-width="2.4" marker-end="url(#ar-c)"/></svg>
+      Fluxo de observabilidade (logs, métricas, coleta, consulta) — Diagrama 2
+    </div>
+    <div class="sample">
+      <svg viewBox="0 0 48 12"><path d="M2 6 L44 6" stroke="#8b949e" stroke-width="1.8" stroke-dasharray="5,4" marker-end="url(#ar-n)"/></svg>
+      Resolução DNS / disparo de agendamento (não é tráfego de requisição)
+    </div>
+    <h4>Controles de segurança aplicados por camada (Diagrama 1):</h4>
     <ul>
       <li>Cloudflare: único ponto de entrada público — só ela conhece o "segredo" X-Origin-Verify da API e é quem tem os CNAMEs oficiais</li>
       <li>API Gateway/Lambda: rejeita (403) qualquer requisição sem o header X-Origin-Verify correto — bloqueia acesso direto à URL da AWS</li>
@@ -184,8 +313,18 @@
       <li>Protocolo único de borda: HTTPS/443 (TLS) — HTTP sempre redirecionado; certificados emitidos via AWS ACM (validação DNS)</li>
       <li>Portas: 443 (HTTPS, único caminho público) · Lambda→DynamoDB e CloudFront→S3 usam a API interna da AWS, sem porta/IP público exposto</li>
       <li>Regra geral aplicada em todas as camadas: tudo bloqueado por padrão, exceto o estritamente necessário para o funcionamento</li>
+      <li><strong>DNS vs. tráfego:</strong> a resolução DNS dos domínios app.* e api.* (A/CNAME) acontece uma vez, no navegador, apontando para a borda da Cloudflare; o tráfego HTTPS que vem depois vai direto a esse edge, que decide para qual origem AWS encaminhar</li>
+      <li><strong>Origem real das chamadas à API:</strong> é o JavaScript do SPA React executando no navegador do usuário (funções <code>axios.get/post/patch/delete</code> em <code>App.js</code>) — não existe um serviço de front-end fazendo esse proxy; o front-end é só arquivos estáticos servidos pelo CloudFront</li>
+    </ul>
+    <h4>Observabilidade (Diagrama 2) — resumo do que é gerenciado pelo provedor:</h4>
+    <ul>
+      <li>API Gateway e DynamoDB são serviços gerenciados que <em>já reúnem</em> geração e publicação da métrica — não existe uma etapa de "coleta" separada como no canário (que precisou de uma função nova porque não existe métrica nativa de "o domínio está no ar")</li>
+      <li>Os detalhes internos de como a AWS calcula/agrega essas métricas nativas (ex.: percentis de latência do API Gateway) não são visíveis ao grupo — são administrados pelo provedor; o grupo só consome o resultado publicado no CloudWatch</li>
+      <li>Os logs do TodoFunction e do HealthCheckFunction são a única fonte de dados que o grupo precisou instrumentar (ver Seção de Logs na documentação)</li>
     </ul>
   </div>
+
+  <p class="footer">Arquivo-fonte editável: este próprio HTML (SVG inline, sem dependências externas). Domínio: neshiku.com.br · Dashboard: todo-app-observabilidade (CloudWatch, região us-east-2).</p>
 
 </div>
 </body>

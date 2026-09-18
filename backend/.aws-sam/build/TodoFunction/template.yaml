@@ -1,11 +1,19 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
 Description: >
-  Backend serverless do Todo App - Lambda + API Gateway (HTTP API) + DynamoDB.
+  Backend serverless do Todo App - Lambda + API Gateway (HTTP API) + DynamoDB,
+  mais a camada de observabilidade da Entrega 2 (canario de disponibilidade,
+  metricas nativas com granularidade por rota, log groups com retencao e
+  dashboard do CloudWatch).
+
   A tabela DynamoDB nao tem endpoint publico: so a role do Lambda tem
   permissao (via DynamoDBCrudPolicy, restrita a esta tabela) para le-la/escreve-la.
   O acesso direto ao API Gateway (sem passar pela Cloudflare) e bloqueado via
   cabecalho secreto (ORIGIN_SECRET), conferido pelo proprio Lambda.
+
+  O acesso aos dados de observabilidade (dashboard do CloudWatch) e controlado
+  pela propria AWS: exige login com uma conta/role IAM da conta do grupo. Nao
+  ha pagina ou API propria expondo esses dados fora do console da AWS.
 
 Parameters:
   OriginSecret:
@@ -14,6 +22,12 @@ Parameters:
     Description: >
       Segredo compartilhado com a Cloudflare (Transform Rule) para bloquear
       acesso direto a URL do API Gateway, sem passar pelo proxy reverso.
+  LogRetentionInDays:
+    Type: Number
+    Default: 30
+    Description: >
+      Por quanto tempo os logs (backend e canario de disponibilidade) ficam
+      retidos no CloudWatch Logs antes de expirarem automaticamente.
 
 Globals:
   Function:
@@ -34,6 +48,9 @@ Resources:
         - AttributeName: id
           KeyType: HASH
 
+  # ---------------------------------------------------------------------------
+  # Back-end (Lambda + API Gateway)
+  # ---------------------------------------------------------------------------
   TodoFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -43,16 +60,52 @@ Resources:
         Variables:
           TABLE_NAME: !Ref TodosTable
           ORIGIN_SECRET: !Ref OriginSecret
+          ENVIRONMENT: production
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref TodosTable
       Events:
-        ApiEvent:
+        # Rotas explicitas (em vez de um catch-all /{proxy+}) para que o API
+        # Gateway consiga publicar metricas nativas por rota no CloudWatch
+        # (dimensao "Route"), usadas nos paineis de Desempenho, Erros e Uso.
+        GetTodos:
           Type: HttpApi
           Properties:
             ApiId: !Ref TodoHttpApi
-            Path: /{proxy+}
-            Method: ANY
+            Path: /todos
+            Method: GET
+        CreateTodo:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref TodoHttpApi
+            Path: /todos
+            Method: POST
+        UpdateTodo:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref TodoHttpApi
+            Path: /todos/{id}
+            Method: PATCH
+        DeleteTodo:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref TodoHttpApi
+            Path: /todos/{id}
+            Method: DELETE
+        SimulatedFailure:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref TodoHttpApi
+            Path: /todos-falha-simulada
+            Method: GET
+
+  # Log group explicito (com retencao) para os logs estruturados do backend.
+  # Sem isso, o Lambda cria o log group automaticamente sem expiracao.
+  TodoFunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${TodoFunction}"
+      RetentionInDays: !Ref LogRetentionInDays
 
   TodoHttpApi:
     Type: AWS::Serverless::HttpApi
@@ -68,6 +121,212 @@ Resources:
           - OPTIONS
         AllowHeaders:
           - Content-Type
+      # Habilita metricas detalhadas (por rota) no CloudWatch para o estagio
+      # padrao do HTTP API: Count, 4xxError, 5xxError, Latency, IntegrationLatency
+      # passam a ser publicadas tambem com a dimensao "Route", nao só agregadas.
+      DefaultRouteSettings:
+        DetailedMetricsEnabled: true
+
+  # ---------------------------------------------------------------------------
+  # Observabilidade — canario de disponibilidade
+  # ---------------------------------------------------------------------------
+  HealthCheckFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: healthcheck/
+      Handler: index.handler
+      Timeout: 10
+      Environment:
+        Variables:
+          FRONTEND_URL: https://app.neshiku.com.br/
+          API_URL: https://api.neshiku.com.br/todos
+          ENVIRONMENT: production
+      Events:
+        ScheduledCheck:
+          Type: Schedule
+          Properties:
+            Schedule: rate(5 minutes)
+            Name: todo-app-healthcheck-schedule
+            Description: >
+              Verificacao periodica de disponibilidade do front-end
+              (app.neshiku.com.br) e da API (api.neshiku.com.br/todos),
+              usada no painel de Disponibilidade.
+            Enabled: true
+
+  HealthCheckFunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${HealthCheckFunction}"
+      RetentionInDays: !Ref LogRetentionInDays
+
+  # Metric Filters: transformam campos dos logs JSON do canario em metricas
+  # customizadas no namespace TodoApp/Availability, dimensionadas por "target"
+  # (frontend | api). E a unica fonte de dados que nao existe nativamente na
+  # AWS — por isso precisou de uma funcao nova em vez de so ligar uma metrica
+  # ja existente do provedor.
+  AvailabilitySuccessMetricFilter:
+    Type: AWS::Logs::MetricFilter
+    DependsOn: HealthCheckFunctionLogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${HealthCheckFunction}"
+      FilterPattern: '{ $.event = "healthcheck" && $.result = "success" }'
+      MetricTransformations:
+        - MetricName: AvailabilitySuccess
+          MetricNamespace: TodoApp/Availability
+          MetricValue: "1"
+          Dimensions:
+            - Key: Target
+              Value: "$.target"
+          Unit: Count
+
+  AvailabilityFailureMetricFilter:
+    Type: AWS::Logs::MetricFilter
+    DependsOn: HealthCheckFunctionLogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${HealthCheckFunction}"
+      FilterPattern: '{ $.event = "healthcheck" && $.result = "failure" }'
+      MetricTransformations:
+        - MetricName: AvailabilityFailure
+          MetricNamespace: TodoApp/Availability
+          MetricValue: "1"
+          Dimensions:
+            - Key: Target
+              Value: "$.target"
+          Unit: Count
+
+  AvailabilityLatencyMetricFilter:
+    Type: AWS::Logs::MetricFilter
+    DependsOn: HealthCheckFunctionLogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${HealthCheckFunction}"
+      FilterPattern: '{ $.event = "healthcheck" }'
+      MetricTransformations:
+        - MetricName: AvailabilityLatency
+          MetricNamespace: TodoApp/Availability
+          MetricValue: "$.latency_ms"
+          Dimensions:
+            - Key: Target
+              Value: "$.target"
+          Unit: Milliseconds
+
+  # ---------------------------------------------------------------------------
+  # Dashboard — os 4 paineis exigidos pela Entrega 2. Acesso exige login com
+  # uma conta/role IAM da conta do grupo (console da AWS) — nao ha pagina ou
+  # API propria expondo esses dados fora da AWS.
+  # ---------------------------------------------------------------------------
+  ObservabilityDashboard:
+    Type: AWS::CloudWatch::Dashboard
+    Properties:
+      DashboardName: todo-app-observabilidade
+      DashboardBody: !Sub |
+        {
+          "widgets": [
+            { "type": "text", "x": 0, "y": 0, "width": 24, "height": 1,
+              "properties": { "markdown": "## Painel 1 — Disponibilidade: a aplicação está acessível pelo domínio configurado?" } },
+            { "type": "metric", "x": 0, "y": 1, "width": 12, "height": 6,
+              "properties": {
+                "title": "Checagens sintéticas — sucesso x falha (soma por período de 5 min)",
+                "view": "timeSeries", "stacked": false, "region": "${AWS::Region}", "period": 300, "stat": "Sum",
+                "timezone": "-0300",
+                "metrics": [
+                  [ "TodoApp/Availability", "AvailabilitySuccess", "Target", "frontend", { "label": "Front-end OK", "color": "#2ca02c" } ],
+                  [ "TodoApp/Availability", "AvailabilitySuccess", "Target", "api", { "label": "API OK", "color": "#1f77b4" } ],
+                  [ "TodoApp/Availability", "AvailabilityFailure", "Target", "frontend", { "label": "Front-end FALHA", "color": "#d62728" } ],
+                  [ "TodoApp/Availability", "AvailabilityFailure", "Target", "api", { "label": "API FALHA", "color": "#ff7f0e" } ]
+                ]
+              } },
+            { "type": "metric", "x": 12, "y": 1, "width": 12, "height": 6,
+              "properties": {
+                "title": "Latência da checagem sintética (ms, média por período)",
+                "view": "timeSeries", "region": "${AWS::Region}", "period": 300, "stat": "Average",
+                "timezone": "-0300",
+                "metrics": [
+                  [ "TodoApp/Availability", "AvailabilityLatency", "Target", "frontend", { "label": "Front-end" } ],
+                  [ "TodoApp/Availability", "AvailabilityLatency", "Target", "api", { "label": "API" } ]
+                ]
+              } },
+
+            { "type": "text", "x": 0, "y": 7, "width": 24, "height": 1,
+              "properties": { "markdown": "## Painel 2 — Desempenho: quais operações estão demorando mais e em quais períodos?" } },
+            { "type": "metric", "x": 0, "y": 8, "width": 24, "height": 6,
+              "properties": {
+                "title": "Latência por rota (API Gateway) — p50 e p95, ms",
+                "view": "timeSeries", "region": "${AWS::Region}", "period": 300,
+                "timezone": "-0300",
+                "metrics": [
+                  [ "AWS/ApiGateway", "Latency", "ApiId", "${TodoHttpApi}", "Resource", "/todos", "Method", "GET", "Stage", "$default", { "stat": "p50", "label": "GET /todos (p50)" } ],
+                  [ "AWS/ApiGateway", "Latency", "ApiId", "${TodoHttpApi}", "Resource", "/todos", "Method", "GET", "Stage", "$default", { "stat": "p95", "label": "GET /todos (p95)" } ],
+                  [ "AWS/ApiGateway", "Latency", "ApiId", "${TodoHttpApi}", "Resource", "/todos", "Method", "POST", "Stage", "$default", { "stat": "p50", "label": "POST /todos (p50)" } ],
+                  [ "AWS/ApiGateway", "Latency", "ApiId", "${TodoHttpApi}", "Resource", "/todos", "Method", "POST", "Stage", "$default", { "stat": "p95", "label": "POST /todos (p95)" } ],
+                  [ "AWS/ApiGateway", "Latency", "ApiId", "${TodoHttpApi}", "Resource", "/todos/{id}", "Method", "PATCH", "Stage", "$default", { "stat": "p95", "label": "PATCH /todos/{id} (p95)" } ],
+                  [ "AWS/ApiGateway", "Latency", "ApiId", "${TodoHttpApi}", "Resource", "/todos/{id}", "Method", "DELETE", "Stage", "$default", { "stat": "p95", "label": "DELETE /todos/{id} (p95)" } ],
+                  [ "AWS/ApiGateway", "Latency", "ApiId", "${TodoHttpApi}", "Resource", "/todos-falha-simulada", "Method", "GET", "Stage", "$default", { "stat": "p95", "label": "GET /todos-falha-simulada (p95)" } ]
+                ]
+              } },
+
+            { "type": "text", "x": 0, "y": 14, "width": 24, "height": 1,
+              "properties": { "markdown": "## Painel 3 — Erros: quais falhas estão ocorrendo e qual parcela das requisições elas representam?" } },
+            { "type": "metric", "x": 0, "y": 15, "width": 8, "height": 6,
+              "properties": {
+                "title": "Taxa de erro agregada da API (%)",
+                "view": "timeSeries", "region": "${AWS::Region}", "period": 300, "stat": "Sum",
+                "timezone": "-0300",
+                "metrics": [
+                  [ "AWS/ApiGateway", "5xxError", "ApiId", "${TodoHttpApi}", "Stage", "$default", { "id": "e5", "visible": false } ],
+                  [ "AWS/ApiGateway", "4xxError", "ApiId", "${TodoHttpApi}", "Stage", "$default", { "id": "e4", "visible": false } ],
+                  [ "AWS/ApiGateway", "Count", "ApiId", "${TodoHttpApi}", "Stage", "$default", { "id": "cnt", "visible": false } ],
+                  [ { "expression": "100*(e5+e4)/cnt", "label": "Taxa de erro (%)", "id": "rate" } ]
+                ]
+              } },
+            { "type": "log", "x": 8, "y": 15, "width": 8, "height": 6,
+              "properties": {
+                "title": "Erros 5xx por rota ao longo do tempo (via logs do back-end)",
+                "region": "${AWS::Region}",
+                "view": "timeSeries",
+                "query": "SOURCE '/aws/lambda/${TodoFunction}' | fields @timestamp, route, status_code\n| filter event = \"http_request\" and status_code >= 500\n| stats count() as erros by bin(5m) as periodo, route\n| sort periodo asc"
+              } },
+            { "type": "log", "x": 16, "y": 15, "width": 8, "height": 6,
+              "properties": {
+                "title": "Causas de erro (top, últimas 3h)",
+                "region": "${AWS::Region}",
+                "view": "table",
+                "query": "SOURCE '/aws/lambda/${TodoFunction}' | fields @timestamp, route, status_code, request_id\n| filter event = \"http_request\" and status_code >= 400\n| stats count() as ocorrencias by route, status_code\n| sort ocorrencias desc"
+              } },
+
+            { "type": "text", "x": 0, "y": 21, "width": 24, "height": 1,
+              "properties": { "markdown": "## Painel 4 — Banco de Dados: as operações do back-end com o banco estão funcionando e com qual duração?" } },
+            { "type": "metric", "x": 0, "y": 22, "width": 8, "height": 6,
+              "properties": {
+                "title": "Latência das operações no DynamoDB (ms, média)",
+                "view": "timeSeries", "region": "${AWS::Region}", "period": 300, "stat": "Average",
+                "timezone": "-0300",
+                "metrics": [
+                  [ "AWS/DynamoDB", "SuccessfulRequestLatency", "TableName", "${TodosTable}", "Operation", "Scan", { "label": "Scan (GET /todos)" } ],
+                  [ "AWS/DynamoDB", "SuccessfulRequestLatency", "TableName", "${TodosTable}", "Operation", "PutItem", { "label": "PutItem (POST /todos)" } ],
+                  [ "AWS/DynamoDB", "SuccessfulRequestLatency", "TableName", "${TodosTable}", "Operation", "GetItem", { "label": "GetItem" } ],
+                  [ "AWS/DynamoDB", "SuccessfulRequestLatency", "TableName", "${TodosTable}", "Operation", "UpdateItem", { "label": "UpdateItem (PATCH)" } ],
+                  [ "AWS/DynamoDB", "SuccessfulRequestLatency", "TableName", "${TodosTable}", "Operation", "DeleteItem", { "label": "DeleteItem" } ]
+                ]
+              } },
+            { "type": "metric", "x": 8, "y": 22, "width": 8, "height": 6,
+              "properties": {
+                "title": "Capacidade consumida no DynamoDB (RCU / WCU)",
+                "view": "timeSeries", "region": "${AWS::Region}", "period": 300, "stat": "Sum",
+                "timezone": "-0300",
+                "metrics": [
+                  [ "AWS/DynamoDB", "ConsumedReadCapacityUnits", "TableName", "${TodosTable}", { "label": "RCU consumidas" } ],
+                  [ "AWS/DynamoDB", "ConsumedWriteCapacityUnits", "TableName", "${TodosTable}", { "label": "WCU consumidas" } ]
+                ]
+              } },
+            { "type": "log", "x": 16, "y": 22, "width": 8, "height": 6,
+              "properties": {
+                "title": "Falhas de acesso ao banco vistas pelo back-end (últimas 3h, horário de Brasília)",
+                "region": "${AWS::Region}",
+                "view": "table",
+                "query": "SOURCE '/aws/lambda/${TodoFunction}' | fields (@timestamp - 3h) as horario_brasilia, operation, error_type, error_message, duration_ms\n| filter event = \"db_operation\" and result = \"failure\"\n| sort horario_brasilia desc\n| limit 50"
+              } }
+          ]
+        }
 
 Outputs:
   ApiUrl:
@@ -75,4 +334,6 @@ Outputs:
     Value: !Sub "https://${TodoHttpApi}.execute-api.${AWS::Region}.amazonaws.com"
   TodosTableName:
     Value: !Ref TodosTable
-
+  DashboardUrl:
+    Description: "URL do dashboard de observabilidade no CloudWatch (exige login IAM)"
+    Value: !Sub "https://${AWS::Region}.console.aws.amazon.com/cloudwatch/home?region=${AWS::Region}#dashboards:name=${ObservabilityDashboard}"

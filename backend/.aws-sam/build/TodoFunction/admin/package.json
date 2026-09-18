@@ -1,0 +1,10 @@
+{
+  "name": "todo-admin-dashboard",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Funcao Lambda que alimenta a pagina protegida /admin com os 5 paineis de observabilidade (imagens de metricas + tabelas de logs do CloudWatch).",
+  "dependencies": {
+    "@aws-sdk/client-cloudwatch": "^3.454.0",
+    "@aws-sdk/client-cloudwatch-logs": "^3.454.0"
+  }
+}
