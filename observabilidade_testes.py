@@ -60,6 +60,19 @@ CONFIG = {
     "primary_bucket_region": "us-east-2",
     "run_failover_test": True,
     "screenshots_dir": "evidencias_observabilidade",
+    # o que o diagrama afirma — conferido contra a AWS na verificacao 8
+    "diagrama": {
+        "cloudfront_id": "E107CAQRHXIBU9",
+        "cloudfront_dominio": "d2q2k05w0uyq82.cloudfront.net",
+        "cloudfront_alias": "app.neshiku.com.br",
+        "api_id": "vfb3b537c6",
+        "api_dominio": "api.neshiku.com.br",
+        "api_target": "d-rzvh9g1a2d.execute-api.us-east-2.amazonaws.com",
+        "bucket_primario": "todo-app-neshiku-frontend-1",
+        "bucket_secundario": "todo-app-neshiku-frontend-2",
+        "regra_agendamento": "todo-app-healthcheck-schedule",
+        "retencao_dias": 30,
+    },
 }
 
 SP_TZ = timezone(timedelta(hours=-3))
@@ -453,6 +466,108 @@ def capturar_screenshots_dashboard(session):
     registrar(7, "Capturas automáticas dos widgets do dashboard (GetMetricWidgetImage)", ok, detalhe)
 
 
+
+def inventariar_ambiente(session, api_id, todo_fn, hc_fn):
+    """Consulta a AWS e monta um INVENTARIO do ambiente: o que existe de fato,
+    com os identificadores reais. Nao e um teste (nao tem PASS/FAIL) — serve
+    para conferir, recurso a recurso, que o diagrama representa o ambiente
+    que esta no ar."""
+    if not session:
+        return ["_boto3 nao disponivel — inventario nao coletado._"]
+    reg = CONFIG["aws_region"]
+    d = CONFIG["diagrama"]
+    L = ["| Elemento | Onde aparece no diagrama | Valor real na AWS |", "|---|---|---|"]
+
+    def add(elemento, no_diagrama, valor):
+        L.append("| %s | %s | `%s` |" % (elemento, no_diagrama, valor))
+
+    try:
+        cf = session.client("cloudfront", region_name="us-east-1")  # CloudFront e global
+        dist = cf.get_distribution(Id=d["cloudfront_id"])["Distribution"]
+        cfg = dist["DistributionConfig"]
+        add("Distribuicao CloudFront", "caixa Amazon CloudFront", dist["Id"])
+        add("Dominio do CloudFront", "destino do CNAME app", dist["DomainName"])
+        add("Alternate domain", "app.neshiku.com.br",
+            ", ".join(cfg.get("Aliases", {}).get("Items", [])) or "(nenhum)")
+        add("Origens configuradas", "os dois buckets S3",
+            ", ".join(o["Id"] for o in cfg.get("Origins", {}).get("Items", [])))
+        add("Origin groups (failover)", "mecanismo de distribuicao",
+            "%d grupo(s)" % cfg.get("OriginGroups", {}).get("Quantity", 0))
+    except Exception as e:
+        add("CloudFront", "-", "erro ao consultar: %s" % e)
+
+    try:
+        apigw = session.client("apigatewayv2", region_name=reg)
+        api = apigw.get_api(ApiId=api_id or d["api_id"])
+        add("API Gateway (ApiId)", "caixa Amazon API Gateway", api["ApiId"])
+        rotas = apigw.get_routes(ApiId=api["ApiId"]).get("Items", [])
+        add("Rotas explicitas", "5 rotas explicitas", " · ".join(r["RouteKey"] for r in rotas))
+        for dom in apigw.get_domain_names().get("Items", []):
+            if dom["DomainName"] == d["api_dominio"]:
+                add("Custom domain da API", "api.neshiku.com.br", dom["DomainName"])
+                add("Target do CNAME api", "destino do CNAME api",
+                    dom["DomainNameConfigurations"][0].get("ApiGatewayDomainName", "?"))
+    except Exception as e:
+        add("API Gateway", "-", "erro ao consultar: %s" % e)
+
+    for rotulo, fn in [("Lambda do back-end", todo_fn), ("Lambda do canario", hc_fn)]:
+        if fn:
+            add(rotulo, "caixas AWS Lambda", fn)
+
+    try:
+        ddb = session.client("dynamodb", region_name=reg)
+        t = ddb.describe_table(TableName=CONFIG["dynamo_table"])["Table"]
+        add("Tabela DynamoDB", "caixa Amazon DynamoDB", t["TableName"])
+        add("Modo de cobranca", "PAY_PER_REQUEST",
+            t.get("BillingModeSummary", {}).get("BillingMode", "?"))
+        add("Chave primaria", "PK: id (String)",
+            ", ".join("%s (%s)" % (k["AttributeName"], k["KeyType"]) for k in t["KeySchema"]))
+    except Exception as e:
+        add("DynamoDB", "-", "erro ao consultar: %s" % e)
+
+    try:
+        s3 = session.client("s3", region_name=reg)
+        for rotulo, bucket in [("Bucket primario", d["bucket_primario"]),
+                               ("Bucket secundario", d["bucket_secundario"])]:
+            loc = s3.get_bucket_location(Bucket=bucket).get("LocationConstraint") or "us-east-1"
+            pab = s3.get_public_access_block(Bucket=bucket)["PublicAccessBlockConfiguration"]
+            add(rotulo, "caixas Amazon S3", "%s — regiao %s — Block Public Access: %s"
+                % (bucket, loc, "ativo" if all(pab.values()) else "INATIVO"))
+    except Exception as e:
+        add("Buckets S3", "-", "erro ao consultar: %s" % e)
+
+    try:
+        ev = session.client("events", region_name=reg)
+        r = ev.describe_rule(Name=d["regra_agendamento"])
+        add("Agendamento do canario", "caixa Amazon EventBridge",
+            "%s — %s — estado %s" % (r["Name"], r.get("ScheduleExpression", "?"), r.get("State", "?")))
+    except Exception as e:
+        add("EventBridge", "-", "erro ao consultar: %s" % e)
+
+    try:
+        logs = session.client("logs", region_name=reg)
+        for rotulo, fn in [("Log group do back-end", todo_fn), ("Log group do canario", hc_fn)]:
+            if not fn:
+                continue
+            g = logs.describe_log_groups(logGroupNamePrefix="/aws/lambda/" + fn)["logGroups"][0]
+            add(rotulo, "caixas CloudWatch Logs", "%s — retencao: %s dias"
+                % (g["logGroupName"], g.get("retentionInDays", "sem expiracao")))
+    except Exception as e:
+        add("Log groups", "-", "erro ao consultar: %s" % e)
+
+    try:
+        cw = session.client("cloudwatch", region_name=reg)
+        body = json.loads(cw.get_dashboard(DashboardName=CONFIG["dashboard_name"])["DashboardBody"])
+        titulos = [w["properties"]["markdown"].strip().lstrip("# ").split(":")[0]
+                   for w in body.get("widgets", []) if w.get("type") == "text"]
+        add("Dashboard", "caixa CloudWatch Dashboard", CONFIG["dashboard_name"])
+        add("Paineis publicados", "os 4 paineis", " · ".join(titulos))
+    except Exception as e:
+        add("Dashboard", "-", "erro ao consultar: %s" % e)
+
+    return L
+
+
 def exemplo_de_registro(session, todo_fn):
     if not session or not todo_fn:
         return None
@@ -472,7 +587,7 @@ def exemplo_de_registro(session, todo_fn):
 # Relatório
 # ---------------------------------------------------------------------------
 
-def gerar_relatorio_md(exemplo_log):
+def gerar_relatorio_md(exemplo_log, inventario=None):
     linhas = [
         "# Relatório de testes — Observabilidade (Entrega 2)",
         "",
@@ -496,6 +611,35 @@ def gerar_relatorio_md(exemplo_log):
     linhas.append("")
     linhas.append(f"**{ok}/{total} verificações passaram.**")
 
+    def veredito(nums):
+        achados = [r for r in results if r["num"] in nums]
+        return "PASS" if achados and all(r["passed"] for r in achados) else "FAIL"
+
+    linhas.append("")
+    linhas.append("## Validação painel a painel")
+    linhas.append("")
+    linhas.append("| Painel | Cenário que o valida | Resultado esperado | Resultado observado |")
+    linhas.append("|---|---|---|---|")
+    linhas.append("| 1 — Disponibilidade | Cenários 2 e 4: canário invocado manualmente e de novo durante a queda do bucket primário | Duas checagens por execução (`frontend` e `api`) com `result=success`, e a série `AvailabilitySuccess` recebendo os pontos | " + veredito([2, 4, 5]) + " — ver verificações 2, 4 e 5 |")
+    linhas.append("| 2 — Desempenho | Cenário 1: 15 GET + 15 POST + PATCH/DELETE pelo domínio | Métrica `Latency` publicada por rota, com pontos no período do teste | " + veredito([1, 5]) + " — ver verificações 1 e 5 |")
+    linhas.append("| 3 — Erros | Cenário 3: 8 chamadas à rota de falha simulada | 8 erros 5xx na rota `/todos-falha-simulada`, visíveis na série por rota e na tabela de causas | " + veredito([3, 6]) + " — ver verificações 3 e 6 |")
+    linhas.append("| 4 — Banco de Dados | Cenário 1: operações reais no DynamoDB (Scan, Put, Update, Delete) | Latência por operação e RCU/WCU consumidas com dados reais; tabela de falhas vazia (banco saudável) | " + veredito([1, 5, 6]) + " — ver verificações 1, 5 e 6 |")
+    linhas.append("")
+    linhas.append("Um mesmo cenário valida mais de um painel porque o tráfego do Cenário 1 percorre a cadeia inteira "
+                  "(domínio → Cloudflare → API Gateway → Lambda → DynamoDB): a mesma requisição gera, ao mesmo tempo, "
+                  "a métrica de latência do API Gateway (Painel 2) e as métricas do DynamoDB (Painel 4).")
+    linhas.append("")
+    linhas.append("## Rastreabilidade: do evento na aplicação até o painel")
+    linhas.append("")
+    linhas.append("1. **Evento na aplicação** — uma requisição chega ao `TodoFunction`, que escreve uma linha JSON em `stdout` (exemplo mais abaixo).")
+    linhas.append("2. **Coleta** — a AWS envia automaticamente o `stdout` do Lambda para o CloudWatch Logs, sem agente.")
+    linhas.append("3. **Armazenamento** — a linha fica no log group `/aws/lambda/<função>`, com retenção de 30 dias.")
+    linhas.append("4. **Consulta** — o widget roda a query de Logs Insights sobre esse log group (as mesmas queries reproduzidas na verificação 6).")
+    linhas.append("5. **Painel** — o resultado aparece no dashboard `" + CONFIG["dashboard_name"] + "`; as imagens em `" + CONFIG["screenshots_dir"] + "/` foram capturadas no período destes testes.")
+    linhas.append("")
+    linhas.append("Em paralelo, a mesma requisição faz o API Gateway publicar `Latency`/`Count`/`5xxError` direto no "
+                  "CloudWatch Metrics, sem passar por log — por isso os Painéis 2 e 3 têm duas fontes.")
+
     linhas.append("")
     linhas.append("## Detalhe (verificação a verificação)")
     for r in results:
@@ -517,6 +661,16 @@ def gerar_relatorio_md(exemplo_log):
             "Essa linha alimenta ao mesmo tempo as métricas nativas do API Gateway "
             "(Desempenho, Erros) e a consulta de Logs Insights do painel de Erros."
         )
+
+    if inventario:
+        linhas.append("")
+        linhas.append("## Inventário do ambiente (conferência do diagrama)")
+        linhas.append("")
+        linhas.append("Consultado diretamente na AWS no momento deste relatório. Serve para conferir, recurso a "
+                      "recurso, que o diagrama representa o ambiente que está no ar. Não é um teste, e por isso "
+                      "não entra na contagem de verificações acima.")
+        linhas.append("")
+        linhas.extend(inventario)
 
     linhas.append("")
     linhas.append("## Conclusão")
@@ -559,9 +713,10 @@ def main():
     verificar_metricas(session, api_id)
     verificar_logs_insights(session, todo_fn)
     capturar_screenshots_dashboard(session)
+    inventario = inventariar_ambiente(session, api_id, todo_fn, hc_fn)
     exemplo_log = exemplo_de_registro(session, todo_fn)
 
-    gerar_relatorio_md(exemplo_log)
+    gerar_relatorio_md(exemplo_log, inventario)
 
 
 if __name__ == "__main__":
